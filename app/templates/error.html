@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Error | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+  <section class="hero-card">
+    <p class="section-label">Error {{ status_code }}</p>
+    <h2>{{ message }}</h2>
+    <p>Return to the dashboard or mobile page and try again.</p>
+  </section>
+{% endblock %}

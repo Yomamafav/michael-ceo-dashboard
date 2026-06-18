@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Mobile Update | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+  <section class="hero-card">
+    <p class="section-label">Quick update from phone</p>
+    <h2>Capture the update now</h2>
+    <p>Use one of the common actions below and keep the dashboard current without opening a spreadsheet.</p>
+  </section>
+
+  {% if updates_warning %}
+    <section class="notice-card">
+      <p class="section-label">Data Warning</p>
+      <p>{{ updates_warning }}</p>
+    </section>
+  {% endif %}
+
+  <section class="mobile-layout">
+    <article class="card">
+      <h3>Submit Update</h3>
+      <form id="mobile-update-form" class="stack-form">
+        <label for="update_type">Update type</label>
+        <select id="update_type" name="update_type" required>
+          {% for option in update_types %}
+            <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="subject">Subject</label>
+        <input id="subject" name="subject" type="text" placeholder="Jose Ramirez deposit" required>
+
+        <label for="details">Details</label>
+        <textarea id="details" name="details" rows="5" placeholder="Deposit paid by Zelle, confirm with bank at 9 AM." required></textarea>
+
+        <button type="submit">Save Update</button>
+        <p id="form-status" class="status-text"></p>
+      </form>
+    </article>
+
+    <article class="card">
+      <h3>Action Shortcuts</h3>
+      <div class="button-grid">
+        {% for option in update_types %}
+          <button type="button" class="ghost-button quick-fill" data-value="{{ option }}">{{ option }}</button>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card">
+      <h3>Recent Updates</h3>
+      {% if recent_updates %}
+        {% for item in recent_updates %}
+          <div class="item-row">
+            <div>
+              <p>{{ item.update_type }}</p>
+              <span>{{ item.subject }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No updates yet.</p>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', path='/app.js') }}"></script>
+{% endblock %}

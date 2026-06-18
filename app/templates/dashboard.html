@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+  <section class="hero-card next-action">
+    <p class="section-label">ONE NEXT ACTION</p>
+    <h2>{{ briefing.one_next_action.title }}</h2>
+    <p>{{ briefing.one_next_action.detail }}</p>
+    <strong>{{ briefing.one_next_action.deadline }}</strong>
+  </section>
+
+  {% if briefing_warning or updates_warning %}
+    <section class="notice-card">
+      <p class="section-label">Data Warning</p>
+      {% if briefing_warning %}
+        <p>{{ briefing_warning }}</p>
+      {% endif %}
+      {% if updates_warning %}
+        <p>{{ updates_warning }}</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="grid">
+    <article class="card">
+      <h3>Today's Schedule</h3>
+      {% for item in briefing.schedule %}
+        <div class="item-row">
+          <strong>{{ item.time }}</strong>
+          <div>
+            <p>{{ item.title }}</p>
+            <span>{{ item.detail }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card accent construction">
+      <h3>4 My4 Construction Revenue</h3>
+      <p class="metric">{{ briefing.construction_revenue.today_target }}</p>
+      <p>Week booked: {{ briefing.construction_revenue.week_booked }}</p>
+      <div class="subcard">
+        <strong>{{ briefing.construction_revenue.active_job.customer }}</strong>
+        <p>{{ briefing.construction_revenue.active_job.job }}</p>
+        <span>{{ briefing.construction_revenue.active_job.status }}</span>
+        <small>Next: {{ briefing.construction_revenue.active_job.next_step }}</small>
+      </div>
+    </article>
+
+    <article class="card accent printing">
+      <h3>POG Printing Revenue</h3>
+      <p class="metric">{{ briefing.printing_revenue.today_target }}</p>
+      <p>Open orders: {{ briefing.printing_revenue.open_orders }}</p>
+      <div class="subcard">
+        <strong>{{ briefing.printing_revenue.featured_task.client }}</strong>
+        <p>{{ briefing.printing_revenue.featured_task.task }}</p>
+        <small>Due {{ briefing.printing_revenue.featured_task.deadline }}</small>
+      </div>
+    </article>
+
+    <article class="card">
+      <h3>Customer Follow-ups</h3>
+      {% for item in briefing.follow_ups %}
+        <div class="item-row compact">
+          <div>
+            <p>{{ item.name }}</p>
+            <span>{{ item.topic }}</span>
+          </div>
+          <strong>{{ item.due }} · {{ item.channel }}</strong>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card">
+      <h3>Payments and Deposits</h3>
+      {% for item in briefing.payments %}
+        <div class="item-row compact">
+          <div>
+            <p>{{ item.name }}</p>
+            <span>{{ item.type }}</span>
+          </div>
+          <strong>{{ item.amount }} · {{ item.status }}</strong>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card">
+      <h3>Bills and Money</h3>
+      {% for item in briefing.bills_money %}
+        <div class="item-row compact">
+          <div>
+            <p>{{ item.name }}</p>
+            <span>Due {{ item.due }}</span>
+          </div>
+          <strong>{{ item.amount }}</strong>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card">
+      <h3>Family Calendar</h3>
+      {% for item in briefing.family_calendar %}
+        <div class="item-row">
+          <strong>{{ item.time }}</strong>
+          <div>
+            <p>{{ item.event }}</p>
+            <span>{{ item.location }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card">
+      <h3>MLB / Colorado Rockies</h3>
+      <p>{{ briefing.rockies.headline }}</p>
+      <span>{{ briefing.rockies.detail }}</span>
+    </article>
+
+    <article class="card">
+      <h3>Softball News</h3>
+      <p>{{ briefing.softball.headline }}</p>
+      <span>{{ briefing.softball.detail }}</span>
+    </article>
+
+    <article class="card">
+      <h3>AI / Automation Ideas</h3>
+      {% for item in briefing.ai_ideas %}
+        <div class="item-row">
+          <div>
+            <p>{{ item.title }}</p>
+            <span>{{ item.impact }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="card">
+      <h3>Recent Mobile Updates</h3>
+      {% if recent_updates %}
+        {% for item in recent_updates %}
+          <div class="item-row">
+            <div>
+              <p>{{ item.update_type }}</p>
+              <span>{{ item.subject }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No updates submitted yet.</p>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}

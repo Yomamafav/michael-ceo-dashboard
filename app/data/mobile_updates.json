@@ -1,0 +1,31 @@
+[
+  {
+    "timestamp": "2026-06-16T12:18:39",
+    "update_type": "Add Quick Note",
+    "subject": "Ready for review",
+    "details": "Checking the live dashboard link on port 8012"
+  },
+  {
+    "timestamp": "2026-06-16T12:16:13",
+    "update_type": "Add Quick Note",
+    "subject": "Post-2.5 check",
+    "details": "Local fallback still works"
+  },
+  {
+    "timestamp": "2026-06-16T12:04:41",
+    "update_type": "Add Follow-Up",
+    "subject": "Verify fallback save",
+    "details": "POST from Milestone 2 verification"
+  },
+  {
+    "timestamp": "2026-06-16T12:04:16",
+    "update_type": "Add Quick Note",
+    "subject": "Milestone 2 check",
+    "details": "Fallback mode verification"
+  },
+  {
+    "update_type": "Add Payment Received",
+    "subject": "Front Range payment",
+    "details": "ACH posted for $640 this morning."
+  }
+]

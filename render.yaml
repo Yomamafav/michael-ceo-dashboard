@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: michael-ceo-dashboard
+    runtime: python
+    plan: starter
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: GOOGLE_SHEETS_ENABLED
+        value: false
+      - key: GOOGLE_SERVICE_ACCOUNT_FILE
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
