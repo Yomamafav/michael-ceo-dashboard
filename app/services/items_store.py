@@ -246,6 +246,74 @@ def mark_payment_received(item_id: str) -> dict[str, Any]:
     return item
 
 
+_ID_PREFIX: dict[str, str] = {
+    "schedule": "sch",
+    "follow_ups": "fu",
+    "payments": "pay",
+    "bills": "bill",
+    "construction_jobs": "cj",
+    "printing_jobs": "pj",
+}
+
+_CATEGORY_SINGULAR: dict[str, str] = {
+    "schedule": "schedule",
+    "follow_ups": "follow_up",
+    "payments": "payment",
+    "bills": "bill",
+    "construction_jobs": "construction_job",
+    "printing_jobs": "printing_job",
+}
+
+_DEFAULT_STATUS: dict[str, str] = {
+    "schedule": "Pending",
+    "follow_ups": "Open",
+    "payments": "Pending",
+    "bills": "Unpaid",
+    "construction_jobs": "Scheduled",
+    "printing_jobs": "In production",
+}
+
+
+def _next_id(items: dict[str, list[dict[str, Any]]], category: str) -> str:
+    prefix = _ID_PREFIX[category]
+    existing = {item["id"] for item in items[category]}
+    index = len(items[category]) + 1
+    candidate = f"{prefix}-{index}"
+    while candidate in existing:
+        index += 1
+        candidate = f"{prefix}-{index}"
+    return candidate
+
+
+def create_item(category: str, fields: dict[str, Any]) -> dict[str, Any]:
+    """Create and persist a new item in any category from a flat field dict."""
+    if category not in CATEGORIES:
+        raise ValueError(f"Unknown category: {category}")
+    items = load_items()
+    entry: dict[str, Any] = {
+        "id": _next_id(items, category),
+        "category": _CATEGORY_SINGULAR[category],
+        "name": str(fields.get("name", "")).strip(),
+        "phone": str(fields.get("phone", "")).strip(),
+        "email": str(fields.get("email", "")).strip(),
+        "job": str(fields.get("job", "")).strip(),
+        "amount": str(fields.get("amount", "")).strip(),
+        "status": str(fields.get("status", _DEFAULT_STATUS[category])).strip(),
+        "due": str(fields.get("due", "")).strip(),
+        "notes": str(fields.get("notes", "")).strip(),
+        "next_action": str(fields.get("next_action", "")).strip(),
+        "update_history": [],
+    }
+    if category == "payments":
+        entry["payment_type"] = str(fields.get("payment_type", "Invoice")).strip()
+    if category == "follow_ups":
+        entry["channel"] = str(fields.get("channel", "Call")).strip()
+    _append_history(entry, f"{CATEGORY_LABELS[category]} created")
+    items[category].insert(0, entry)
+    save_items(items)
+    return entry
+
+
 def create_follow_up(*, name: str, phone: str = "", email: str = "", job: str = "", due: str = "Today", channel: str = "Call") -> dict[str, Any]:
     items = load_items()
     existing_ids = {item["id"] for item in items["follow_ups"]}

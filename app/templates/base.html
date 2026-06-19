@@ -16,6 +16,8 @@
         <nav class="topnav">
           <a href="/">Dashboard</a>
           <a href="/mobile">Mobile Update</a>
+          <a href="/command-center">Command Center</a>
+          <a href="/ai-operations">AI Operations</a>
         </nav>
       </header>
       <main>
@@ -73,6 +75,19 @@
 
           <button type="submit">Save follow-up</button>
           <p id="followup-status" class="status-text"></p>
+        </form>
+      </div>
+    </div>
+
+    <div id="add-item-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal-box">
+        <button type="button" id="add-item-modal-close" class="modal-close" aria-label="Close">&times;</button>
+        <p class="section-label" id="add-item-category-label"></p>
+        <h2 id="add-item-title"></h2>
+        <form id="add-item-form" class="stack-form">
+          <div id="add-item-fields"></div>
+          <button type="submit">Save</button>
+          <p id="add-item-status" class="status-text"></p>
         </form>
       </div>
     </div>

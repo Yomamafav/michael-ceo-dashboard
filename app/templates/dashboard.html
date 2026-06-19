@@ -26,7 +26,10 @@
     <article class="card">
       <div class="card-head">
         <h3>Today's Schedule</h3>
-        <span class="source-badge">{{ briefing_source }}</span>
+        <div class="card-head-actions">
+          <span class="source-badge">{{ briefing_source }}</span>
+          <button type="button" class="ghost-button small-button add-item-trigger" data-category="schedule">+ Add</button>
+        </div>
       </div>
       {% for item in briefing.schedule %}
         <button type="button" class="item-row interactive-row clickable-item" data-category="schedule" data-id="{{ item.id }}">
@@ -43,7 +46,10 @@
       <h3>4 My4 Construction Revenue</h3>
       <p class="metric">{{ briefing.construction_revenue.today_target }}</p>
       <p>Week booked: {{ briefing.construction_revenue.week_booked }}</p>
-      <p class="subheading">Construction Jobs</p>
+      <div class="card-head subhead-row">
+        <p class="subheading">Construction Jobs</p>
+        <button type="button" class="ghost-button small-button add-item-trigger" data-category="construction_jobs">+ Add job</button>
+      </div>
       {% for item in briefing.construction_jobs %}
         <button type="button" class="item-row compact interactive-row clickable-item" data-category="construction_jobs" data-id="{{ item.id }}">
           <div>
@@ -59,7 +65,10 @@
       <h3>POG Printing Revenue</h3>
       <p class="metric">{{ briefing.printing_revenue.today_target }}</p>
       <p>Open orders: {{ briefing.printing_revenue.open_orders }}</p>
-      <p class="subheading">POG Printing Jobs</p>
+      <div class="card-head subhead-row">
+        <p class="subheading">POG Printing Jobs</p>
+        <button type="button" class="ghost-button small-button add-item-trigger" data-category="printing_jobs">+ Add job</button>
+      </div>
       {% for item in briefing.printing_jobs %}
         <button type="button" class="item-row compact interactive-row clickable-item" data-category="printing_jobs" data-id="{{ item.id }}">
           <div>
@@ -88,7 +97,10 @@
     </article>
 
     <article class="card">
-      <h3>Payments and Deposits</h3>
+      <div class="card-head">
+        <h3>Payments and Deposits</h3>
+        <button type="button" class="ghost-button small-button add-item-trigger" data-category="payments">+ Add</button>
+      </div>
       {% for item in briefing.payments %}
         <button type="button" class="item-row compact interactive-row clickable-item" data-category="payments" data-id="{{ item.id }}">
           <div>
@@ -101,7 +113,10 @@
     </article>
 
     <article class="card">
-      <h3>Bills and Money</h3>
+      <div class="card-head">
+        <h3>Bills and Money</h3>
+        <button type="button" class="ghost-button small-button add-item-trigger" data-category="bills">+ Add</button>
+      </div>
       {% for item in briefing.bills_money %}
         <button type="button" class="item-row compact interactive-row clickable-item" data-category="bills" data-id="{{ item.id }}">
           <div>

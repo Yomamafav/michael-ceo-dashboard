@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Command Center | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+<section class="cc-header">
+  <p class="section-label">Agent Control Panel</p>
+  <h2 class="cc-title">Command Center</h2>
+  <p class="cc-subtitle">Assign tasks &middot; Answer agent questions &middot; Review and approve changes</p>
+</section>
+
+<div class="cc-tabs" role="tablist">
+  <button class="cc-tab" data-tab="inbox" role="tab" aria-selected="false">
+    Command Inbox
+  </button>
+  <button class="cc-tab" data-tab="questions" role="tab" aria-selected="false">
+    Agent Questions{% if pending_q_count > 0 %} <span class="cc-badge">{{ pending_q_count }}</span>{% endif %}
+  </button>
+  <button class="cc-tab" data-tab="status" role="tab" aria-selected="false">
+    Project Status
+  </button>
+  <button class="cc-tab" data-tab="changes" role="tab" aria-selected="false">
+    Change Log
+  </button>
+  <button class="cc-tab" data-tab="approvals" role="tab" aria-selected="false">
+    Approval Queue{% if pending_ap_count > 0 %} <span class="cc-badge cc-badge-warn">{{ pending_ap_count }}</span>{% endif %}
+  </button>
+</div>
+
+{# =========================================================================
+   SECTION 1: COMMAND INBOX
+   ========================================================================= #}
+<section class="cc-section" id="cc-inbox" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Command Inbox</h3>
+    <button type="button" class="ghost-button small-button" id="new-task-toggle">+ New task</button>
+  </div>
+
+  <div class="cc-new-task-form card hidden" id="new-task-form-wrap">
+    <p class="section-label">New task</p>
+    <form id="new-task-form" class="stack-form">
+      <label for="task-title">Task title *</label>
+      <input id="task-title" name="title" type="text" required placeholder="Describe what needs to be done">
+
+      <label for="task-description">Description</label>
+      <textarea id="task-description" name="description" rows="2" placeholder="More detail, acceptance criteria, or context"></textarea>
+
+      <label for="task-assigned">Assign to</label>
+      <input id="task-assigned" name="assigned_to" type="text" value="Claude Code" placeholder="Claude Code, Michael, etc.">
+
+      <label for="task-priority">Priority</label>
+      <select id="task-priority" name="priority">
+        <option value="High">High</option>
+        <option value="Medium" selected>Medium</option>
+        <option value="Low">Low</option>
+      </select>
+
+      <button type="submit">Save task</button>
+      <p class="status-text" id="new-task-status"></p>
+    </form>
+  </div>
+
+  <div id="task-list">
+    {% if tasks %}
+      {% for task in tasks %}
+        <div class="cc-task-card card" id="task-{{ task.id }}" data-id="{{ task.id }}">
+          <div class="cc-task-head">
+            <div class="cc-task-meta">
+              <span class="cc-priority-badge priority-{{ task.priority | lower }}">{{ task.priority }}</span>
+              <span class="cc-status-badge status-{{ task.status | lower | replace(' ', '-') }}">{{ task.status }}</span>
+            </div>
+            <span class="cc-task-assignee">{{ task.assigned_to }}</span>
+          </div>
+          <p class="cc-task-title">{{ task.title }}</p>
+          {% if task.description %}
+            <p class="cc-task-desc">{{ task.description }}</p>
+          {% endif %}
+          {% if task.notes %}
+            <p class="cc-task-notes"><em>Note: {{ task.notes }}</em></p>
+          {% endif %}
+          <div class="cc-task-actions">
+            <select class="cc-status-select" data-task-id="{{ task.id }}" aria-label="Change status">
+              {% for s in task_statuses %}
+                <option value="{{ s }}"{% if s == task.status %} selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <span class="status-text cc-task-feedback" id="task-feedback-{{ task.id }}"></span>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="cc-empty">No tasks yet. Add one above to get started.</p>
+    {% endif %}
+  </div>
+</section>
+
+{# =========================================================================
+   SECTION 2: AGENT QUESTIONS
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-questions" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Agent Questions</h3>
+    <p class="cc-section-hint">The agent needs your input to keep moving. Answer a question to unblock work.</p>
+  </div>
+
+  {% if questions %}
+    {% for q in questions %}
+      <div class="cc-question-card card {% if q.status == 'answered' %}cc-answered{% endif %}" id="q-{{ q.id }}">
+        <div class="cc-question-head">
+          <span class="cc-q-status-badge {% if q.status == 'answered' %}q-answered{% else %}q-pending{% endif %}">
+            {{ "Answered" if q.status == "answered" else "Needs answer" }}
+          </span>
+          <span class="cc-q-time">{{ q.asked_at[:10] }}</span>
+        </div>
+        <p class="cc-question-text">{{ q.question }}</p>
+        {% if q.context %}
+          <p class="cc-question-context">{{ q.context }}</p>
+        {% endif %}
+        {% if q.status == "answered" %}
+          <div class="cc-answer-display">
+            <p class="section-label">Michael's answer</p>
+            <p>{{ q.answer }}</p>
+            <p class="cc-answered-at">Answered {{ q.answered_at[:10] if q.answered_at else "" }}</p>
+          </div>
+        {% else %}
+          <form class="cc-answer-form stack-form" data-q-id="{{ q.id }}">
+            <label for="answer-{{ q.id }}">Your answer</label>
+            <textarea id="answer-{{ q.id }}" name="answer" rows="3" placeholder="Type your answer here..."></textarea>
+            <button type="submit" class="cc-answer-submit">Save answer</button>
+            <p class="status-text cc-answer-status" id="q-status-{{ q.id }}"></p>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="cc-empty">No open questions. The agent is working without blockers.</p>
+  {% endif %}
+</section>
+
+{# =========================================================================
+   SECTION 3: PROJECT STATUS
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-status" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Project Status</h3>
+  </div>
+
+  <div class="card cc-status-mission">
+    <p class="section-label">Current mission</p>
+    <p class="cc-mission-text">{{ project_status.mission }}</p>
+  </div>
+
+  {% if project_status.active_tasks %}
+    <div class="card">
+      <p class="section-label">Active tasks</p>
+      {% for task in project_status.active_tasks %}
+        <div class="item-row">
+          <div>
+            <p>{{ task.title }}</p>
+            <span>{{ task.assigned_to }}</span>
+          </div>
+          <span class="cc-status-badge status-{{ task.status | lower | replace(' ', '-') }}">{{ task.status }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if project_status.blockers %}
+    <div class="card cc-blockers">
+      <p class="section-label">Blockers</p>
+      {% for blocker in project_status.blockers %}
+        <p class="cc-blocker-item">{{ blocker }}</p>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card cc-no-blockers">
+      <p class="section-label">Blockers</p>
+      <p>No blockers. Work is moving.</p>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <p class="section-label">Next recommended action</p>
+    <p class="cc-next-action">{{ project_status.next_recommended_action }}</p>
+  </div>
+
+  {% if project_status.completed_work %}
+    <div class="card">
+      <p class="section-label">Completed work</p>
+      {% for item in project_status.completed_work %}
+        <div class="item-row">
+          <div>
+            <p>{{ item.description }}</p>
+            <span>{{ item.date }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+{# =========================================================================
+   SECTION 4: CHANGE LOG
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-changes" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Change Log</h3>
+    <p class="cc-section-hint">Every file that was touched, what changed, and why.</p>
+  </div>
+
+  {% if change_log %}
+    {% for entry in change_log %}
+      <div class="cc-change-card card">
+        <div class="cc-change-head">
+          <p class="cc-change-feature">{{ entry.feature }}</p>
+          <span class="cc-change-time">{{ entry.timestamp[:10] }}</span>
+        </div>
+        <p class="cc-change-desc">{{ entry.description }}</p>
+        {% if entry.agent_notes %}
+          <p class="cc-agent-notes">Agent note: {{ entry.agent_notes }}</p>
+        {% endif %}
+        {% if entry.files_changed %}
+          <details class="cc-files-detail">
+            <summary class="cc-files-summary">{{ entry.files_changed | length }} file{{ "s" if entry.files_changed | length != 1 else "" }} changed</summary>
+            <ul class="cc-file-list">
+              {% for f in entry.files_changed %}
+                <li>{{ f }}</li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="cc-empty">No changes logged yet.</p>
+  {% endif %}
+</section>
+
+{# =========================================================================
+   SECTION 5: APPROVAL QUEUE
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-approvals" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Approval Queue</h3>
+    <p class="cc-section-hint">Review proposed changes and give the agent a green light, send it back, or reject it.</p>
+  </div>
+
+  {% if approvals %}
+    {% for ap in approvals %}
+      <div class="cc-approval-card card" id="ap-{{ ap.id }}">
+        <div class="cc-approval-head">
+          <span class="cc-ap-status-badge ap-{{ ap.status }}">
+            {% if ap.status == "pending" %}Pending your review
+            {% elif ap.status == "approved" %}Approved
+            {% elif ap.status == "rejected" %}Rejected
+            {% else %}Needs changes
+            {% endif %}
+          </span>
+          <span class="cc-q-time">{{ ap.requested_at[:10] }}</span>
+        </div>
+        <p class="cc-approval-title">{{ ap.title }}</p>
+        <p class="cc-approval-desc">{{ ap.description }}</p>
+        {% if ap.files_affected %}
+          <details class="cc-files-detail">
+            <summary class="cc-files-summary">{{ ap.files_affected | length }} file{{ "s" if ap.files_affected | length != 1 else "" }} affected</summary>
+            <ul class="cc-file-list">
+              {% for f in ap.files_affected %}
+                <li>{{ f }}</li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% endif %}
+        {% if ap.status != "pending" %}
+          <div class="cc-ap-decision-display">
+            {% if ap.feedback %}
+              <p class="cc-agent-notes">Feedback: {{ ap.feedback }}</p>
+            {% endif %}
+            <p class="cc-answered-at">Decided {{ ap.decided_at[:10] if ap.decided_at else "" }}</p>
+          </div>
+        {% else %}
+          <form class="cc-approval-form" data-ap-id="{{ ap.id }}">
+            <label for="ap-feedback-{{ ap.id }}">Feedback (optional)</label>
+            <textarea id="ap-feedback-{{ ap.id }}" name="feedback" rows="2" placeholder="Notes for the agent..."></textarea>
+            <div class="cc-decision-buttons">
+              <button type="button" class="cc-approve-btn" data-ap-id="{{ ap.id }}" data-decision="approved">Approve</button>
+              <button type="button" class="cc-changes-btn" data-ap-id="{{ ap.id }}" data-decision="needs_changes">Needs Changes</button>
+              <button type="button" class="cc-reject-btn" data-ap-id="{{ ap.id }}" data-decision="rejected">Reject</button>
+            </div>
+            <p class="status-text" id="ap-status-{{ ap.id }}"></p>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="cc-empty">Nothing in the approval queue. No pending changes to review.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/command_center.js') }}"></script>
+{% endblock %}

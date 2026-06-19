@@ -108,6 +108,11 @@ document.addEventListener("click", (event) => {
   const trigger = event.target.closest(".clickable-item");
   if (trigger) {
     openItemModal(trigger.dataset.category, trigger.dataset.id);
+    return;
+  }
+  const addTrigger = event.target.closest(".add-item-trigger");
+  if (addTrigger) {
+    openAddItemModal(addTrigger.dataset.category);
   }
 });
 
@@ -279,6 +284,165 @@ function copyTextMessage() {
   } else {
     modalStatus.textContent = message;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Add-item modal (schedule, construction_jobs, printing_jobs, payments, bills)
+// ---------------------------------------------------------------------------
+
+const ADD_ITEM_FIELD_DEFS = {
+  schedule: [
+    { name: "name", label: "Description", required: true },
+    { name: "job", label: "Details" },
+    { name: "due", label: "Time (e.g. 9:00 AM)", required: true },
+    { name: "next_action", label: "Next action" },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ],
+  construction_jobs: [
+    { name: "name", label: "Customer name", required: true },
+    { name: "job", label: "Job description", required: true },
+    { name: "amount", label: "Amount (e.g. $4,800)" },
+    { name: "phone", label: "Phone" },
+    { name: "email", label: "Email" },
+    {
+      name: "status", label: "Status", type: "select",
+      options: ["Scheduled", "In progress", "Waiting on deposit", "On hold"],
+    },
+    { name: "due", label: "Due / crew date" },
+    { name: "next_action", label: "Next action" },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ],
+  printing_jobs: [
+    { name: "name", label: "Customer name", required: true },
+    { name: "job", label: "Job description", required: true },
+    { name: "amount", label: "Amount (e.g. $640)" },
+    { name: "phone", label: "Phone" },
+    { name: "email", label: "Email" },
+    {
+      name: "status", label: "Status", type: "select",
+      options: ["Quoted", "In production", "Awaiting approval", "Ready for pickup"],
+      default: "In production",
+    },
+    { name: "due", label: "Due date / time" },
+    { name: "next_action", label: "Next action" },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ],
+  payments: [
+    { name: "name", label: "Customer name", required: true },
+    { name: "amount", label: "Amount (e.g. $2,500)", required: true },
+    {
+      name: "payment_type", label: "Payment type", type: "select",
+      options: ["Deposit", "Invoice"],
+    },
+    { name: "job", label: "Job / description" },
+    { name: "phone", label: "Phone" },
+    { name: "email", label: "Email" },
+    { name: "due", label: "Due date" },
+    { name: "next_action", label: "Next action" },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ],
+  bills: [
+    { name: "name", label: "Vendor / bill name", required: true },
+    { name: "amount", label: "Amount (e.g. $1,180)", required: true },
+    { name: "due", label: "Due date", required: true },
+    { name: "next_action", label: "Next action" },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ],
+};
+
+const ADD_ITEM_MODAL_TITLES = {
+  schedule: "Add schedule item",
+  construction_jobs: "Add construction job",
+  printing_jobs: "Add printing job",
+  payments: "Add payment",
+  bills: "Add bill",
+};
+
+const addItemModal = document.getElementById("add-item-modal");
+const addItemModalClose = document.getElementById("add-item-modal-close");
+const addItemCategoryLabel = document.getElementById("add-item-category-label");
+const addItemTitle = document.getElementById("add-item-title");
+const addItemFieldsContainer = document.getElementById("add-item-fields");
+const addItemForm = document.getElementById("add-item-form");
+const addItemStatus = document.getElementById("add-item-status");
+
+let addItemCategory = null;
+
+if (addItemModalClose && addItemModal) {
+  addItemModalClose.addEventListener("click", closeAddItemModal);
+  addItemModal.addEventListener("click", (event) => {
+    if (event.target === addItemModal) {
+      closeAddItemModal();
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && addItemModal && !addItemModal.classList.contains("hidden")) {
+    closeAddItemModal();
+  }
+});
+
+function openAddItemModal(category) {
+  if (!addItemModal) {
+    return;
+  }
+  addItemCategory = category;
+  addItemCategoryLabel.textContent = CATEGORY_LABELS[category] || category;
+  addItemTitle.textContent = ADD_ITEM_MODAL_TITLES[category] || `Add ${category}`;
+  renderAddItemFields(category);
+  addItemStatus.textContent = "";
+  addItemModal.classList.remove("hidden");
+  addItemModal.setAttribute("aria-hidden", "false");
+}
+
+function closeAddItemModal() {
+  if (!addItemModal) {
+    return;
+  }
+  addItemModal.classList.add("hidden");
+  addItemModal.setAttribute("aria-hidden", "true");
+  addItemCategory = null;
+}
+
+function renderAddItemFields(category) {
+  const defs = ADD_ITEM_FIELD_DEFS[category] || [];
+  addItemFieldsContainer.innerHTML = defs
+    .map((field) => {
+      const id = `add-item-${field.name}`;
+      const labelHtml = `<label for="${id}">${escapeHtml(field.label)}${field.required ? " *" : ""}</label>`;
+      let inputHtml;
+      if (field.type === "textarea") {
+        inputHtml = `<textarea id="${id}" name="${field.name}" rows="2"></textarea>`;
+      } else if (field.type === "select") {
+        const selectedDefault = field.default || (field.options && field.options[0]) || "";
+        const optionsHtml = (field.options || [])
+          .map((opt) => `<option value="${escapeHtml(opt)}"${opt === selectedDefault ? " selected" : ""}>${escapeHtml(opt)}</option>`)
+          .join("");
+        inputHtml = `<select id="${id}" name="${field.name}">${optionsHtml}</select>`;
+      } else {
+        inputHtml = `<input id="${id}" name="${field.name}" type="text"${field.required ? " required" : ""}>`;
+      }
+      return labelHtml + inputHtml;
+    })
+    .join("");
+}
+
+if (addItemForm) {
+  addItemForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!addItemCategory) {
+      return;
+    }
+    addItemStatus.textContent = "Saving...";
+    const formData = new FormData(addItemForm);
+    const response = await postForm(`/api/items/${addItemCategory}`, formData);
+    if (!response.ok) {
+      addItemStatus.textContent = response.detail || "Unable to save.";
+      return;
+    }
+    window.location.reload();
+  });
 }
 
 async function getJson(url) {

@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}AI Operations | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+<section class="cc-header">
+  <p class="section-label">AI Agent Control</p>
+  <h2 class="cc-title">AI Operations</h2>
+  <p class="cc-subtitle">Agent status &middot; Inbox &middot; Questions &middot; Activity feed</p>
+</section>
+
+<div class="cc-tabs" role="tablist">
+  <button class="cc-tab" data-tab="ao-status" role="tab" aria-selected="false">
+    Agent Status
+  </button>
+  <button class="cc-tab" data-tab="ao-inbox" role="tab" aria-selected="false">
+    Inbox{% if unread_count > 0 %} <span class="cc-badge cc-badge-warn">{{ unread_count }}</span>{% endif %}
+  </button>
+  <button class="cc-tab" data-tab="ao-questions" role="tab" aria-selected="false">
+    Agent Questions{% if pending_q_count > 0 %} <span class="cc-badge">{{ pending_q_count }}</span>{% endif %}
+  </button>
+  <button class="cc-tab" data-tab="ao-feed" role="tab" aria-selected="false">
+    Activity Feed
+  </button>
+</div>
+
+{# =========================================================================
+   TAB 1: AGENT STATUS
+   ========================================================================= #}
+<section class="cc-section" id="cc-ao-status" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Agent Status</h3>
+    <button type="button" class="ghost-button small-button" id="ao-register-toggle">+ Register agent</button>
+  </div>
+
+  <div class="ao-register-form card hidden" id="ao-register-form-wrap">
+    <p class="section-label">Register new agent</p>
+    <form id="ao-register-form" class="stack-form">
+      <label for="ao-agent-name">Agent name *</label>
+      <input id="ao-agent-name" name="name" type="text" required placeholder="e.g. Morning Digest">
+
+      <label for="ao-agent-type">Agent type</label>
+      <input id="ao-agent-type" name="agent_type" type="text" placeholder="e.g. morning_digest">
+
+      <label for="ao-agent-desc">Description</label>
+      <textarea id="ao-agent-desc" name="description" rows="2" placeholder="What does this agent do?"></textarea>
+
+      <label for="ao-agent-schedule">Next scheduled run (optional)</label>
+      <input id="ao-agent-schedule" name="next_run" type="text" placeholder="e.g. 2026-06-20T08:00:00">
+
+      <button type="submit">Register agent</button>
+      <p class="status-text" id="ao-register-status"></p>
+    </form>
+  </div>
+
+  <div id="ao-agent-list">
+    {% if agents %}
+      {% for agent in agents %}
+        <div class="ao-agent-card card" id="ao-agent-{{ agent.id }}" data-id="{{ agent.id }}">
+          <div class="ao-agent-head">
+            <div class="ao-agent-name-wrap">
+              <span class="ao-status-dot ao-dot-{{ agent.status }}"></span>
+              <p class="ao-agent-name">{{ agent.name }}</p>
+              <span class="ao-agent-type-label">{{ agent.agent_type }}</span>
+            </div>
+            <span class="ao-status-badge ao-badge-{{ agent.status }}">{{ agent.status | capitalize }}</span>
+          </div>
+          {% if agent.description %}
+            <p class="ao-agent-desc">{{ agent.description }}</p>
+          {% endif %}
+          <div class="ao-agent-meta">
+            {% if agent.last_run %}
+              <span class="ao-meta-item">Last run: {{ agent.last_run[:16] | replace("T", " ") }}</span>
+            {% endif %}
+            {% if agent.next_run %}
+              <span class="ao-meta-item">Next: {{ agent.next_run[:16] | replace("T", " ") }}</span>
+            {% endif %}
+          </div>
+          {% if agent.last_result %}
+            <p class="ao-last-result">{{ agent.last_result }}</p>
+          {% endif %}
+          {% if agent.status == "error" and agent.error_message %}
+            <p class="ao-error-msg">Error: {{ agent.error_message }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="cc-empty">No agents registered yet. Add one above.</p>
+    {% endif %}
+  </div>
+</section>
+
+{# =========================================================================
+   TAB 2: AGENT INBOX
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-ao-inbox" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Agent Inbox</h3>
+    <p class="cc-section-hint">Reports and alerts delivered by agents for your review.</p>
+  </div>
+
+  <div id="ao-inbox-list">
+    {% if inbox %}
+      {% for item in inbox %}
+        <div class="ao-inbox-card card {% if item.status == 'unread' %}ao-unread{% endif %}" id="ao-inbox-{{ item.id }}" data-id="{{ item.id }}">
+          <div class="ao-inbox-head">
+            <div class="ao-inbox-meta">
+              <span class="ao-inbox-type-badge ao-type-{{ item.type }}">{{ item.type | capitalize }}</span>
+              {% if item.action_required %}
+                <span class="ao-action-required-badge">Action required</span>
+              {% endif %}
+              {% if item.status == 'unread' %}
+                <span class="ao-unread-dot"></span>
+              {% endif %}
+            </div>
+            <span class="cc-q-time">{{ item.created_at[:10] }}</span>
+          </div>
+          <p class="ao-inbox-agent">From: {{ item.agent_name }}</p>
+          <p class="ao-inbox-subject">{{ item.subject }}</p>
+          <p class="ao-inbox-summary">{{ item.summary }}</p>
+          {% if item.body and item.body != item.summary %}
+            <details class="cc-files-detail">
+              <summary class="cc-files-summary">Full message</summary>
+              <p class="ao-inbox-body">{{ item.body }}</p>
+            </details>
+          {% endif %}
+          {% if item.status not in ('actioned', 'dismissed') %}
+            <div class="ao-inbox-actions">
+              <button type="button" class="ao-action-btn" data-inbox-id="{{ item.id }}" data-action="actioned">Mark actioned</button>
+              <button type="button" class="ao-dismiss-btn" data-inbox-id="{{ item.id }}" data-action="dismissed">Dismiss</button>
+              <span class="status-text ao-inbox-feedback" id="inbox-feedback-{{ item.id }}"></span>
+            </div>
+          {% else %}
+            <p class="cc-answered-at ao-inbox-done">{{ item.status | capitalize }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="cc-empty">Inbox is empty. Agents haven't sent any reports yet.</p>
+    {% endif %}
+  </div>
+</section>
+
+{# =========================================================================
+   TAB 3: AGENT QUESTIONS
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-ao-questions" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Agent Questions</h3>
+    <p class="cc-section-hint">Questions escalated by agents that need your decision to unblock work.</p>
+  </div>
+
+  {% if questions %}
+    {% for q in questions %}
+      <div class="cc-question-card card {% if q.status == 'answered' %}cc-answered{% endif %}" id="aoq-{{ q.id }}">
+        <div class="cc-question-head">
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span class="cc-q-status-badge {% if q.status == 'answered' %}q-answered{% else %}q-pending{% endif %}">
+              {{ "Answered" if q.status == "answered" else "Needs answer" }}
+            </span>
+            <span class="ao-agent-type-label">{{ q.asked_by }}</span>
+          </div>
+          <span class="cc-q-time">{{ q.asked_at[:10] }}</span>
+        </div>
+        <p class="cc-question-text">{{ q.question }}</p>
+        {% if q.context %}
+          <p class="cc-question-context">{{ q.context }}</p>
+        {% endif %}
+        {% if q.status == "answered" %}
+          <div class="cc-answer-display">
+            <p class="section-label">Your answer</p>
+            <p>{{ q.answer }}</p>
+            <p class="cc-answered-at">Answered {{ q.answered_at[:10] if q.answered_at else "" }}</p>
+          </div>
+        {% else %}
+          <form class="ao-answer-form stack-form" data-q-id="{{ q.id }}">
+            <label for="ao-answer-{{ q.id }}">Your answer</label>
+            <textarea id="ao-answer-{{ q.id }}" name="answer" rows="3" placeholder="Type your answer here..."></textarea>
+            <button type="submit" class="cc-answer-submit">Save answer</button>
+            <p class="status-text cc-answer-status" id="aoq-status-{{ q.id }}"></p>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="cc-empty">No open questions. Agents are working without blockers.</p>
+  {% endif %}
+</section>
+
+{# =========================================================================
+   TAB 4: ACTIVITY FEED
+   ========================================================================= #}
+<section class="cc-section hidden" id="cc-ao-feed" role="tabpanel">
+  <div class="cc-section-head">
+    <h3>Activity Feed</h3>
+    <p class="cc-section-hint">Chronological log of all agent actions.</p>
+  </div>
+
+  {% if activity %}
+    {% for entry in activity %}
+      <div class="ao-feed-card card">
+        <div class="cc-change-head">
+          <div class="ao-feed-left">
+            <span class="ao-feed-type ao-feed-{{ entry.type }}">{{ entry.type | capitalize }}</span>
+            <span class="ao-feed-agent">{{ entry.agent_name }}</span>
+          </div>
+          <span class="cc-change-time">{{ entry.timestamp[:16] | replace("T", " ") }}</span>
+        </div>
+        <p class="ao-feed-action">{{ entry.action }}</p>
+        {% if entry.detail %}
+          <p class="ao-feed-detail">{{ entry.detail }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="cc-empty">No activity yet. Agents will log their actions here.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='/ai_ops.js') }}"></script>
+{% endblock %}
