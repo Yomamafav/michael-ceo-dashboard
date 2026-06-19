@@ -22,6 +22,62 @@
         {% block content %}{% endblock %}
       </main>
     </div>
+
+    <div id="item-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal-box">
+        <button type="button" id="modal-close" class="modal-close" aria-label="Close">&times;</button>
+        <p class="section-label" id="modal-category-label"></p>
+        <h2 id="modal-title"></h2>
+        <div class="modal-fields" id="modal-fields"></div>
+        <div class="modal-actions" id="modal-actions"></div>
+        <div class="modal-note-form">
+          <label for="modal-note-input">Add note</label>
+          <textarea id="modal-note-input" rows="3" placeholder="Type a quick note..."></textarea>
+          <button type="button" id="modal-note-submit" class="ghost-button small-button">Add note</button>
+        </div>
+        <p id="modal-status" class="status-text"></p>
+        <div class="modal-history">
+          <p class="section-label">Update history</p>
+          <ul id="modal-history-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="followup-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal-box">
+        <button type="button" id="followup-modal-close" class="modal-close" aria-label="Close">&times;</button>
+        <p class="section-label">New follow-up</p>
+        <h2>Add a follow-up</h2>
+        <form id="followup-form" class="stack-form">
+          <label for="followup-name">Name</label>
+          <input id="followup-name" name="name" type="text" required>
+
+          <label for="followup-job">Topic / job</label>
+          <input id="followup-job" name="job" type="text">
+
+          <label for="followup-phone">Phone</label>
+          <input id="followup-phone" name="phone" type="text">
+
+          <label for="followup-email">Email</label>
+          <input id="followup-email" name="email" type="text">
+
+          <label for="followup-due">Due</label>
+          <input id="followup-due" name="due" type="text" value="Today">
+
+          <label for="followup-channel">Channel</label>
+          <select id="followup-channel" name="channel">
+            <option value="Call">Call</option>
+            <option value="Text">Text</option>
+            <option value="Email">Email</option>
+          </select>
+
+          <button type="submit">Save follow-up</button>
+          <p id="followup-status" class="status-text"></p>
+        </form>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', path='/app.js') }}"></script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

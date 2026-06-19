@@ -1,5 +1,11 @@
 [
   {
+    "timestamp": "2026-06-18T17:38:53",
+    "update_type": "Add Customer",
+    "subject": "Interactive test",
+    "details": "Verifying new update log and detail panels"
+  },
+  {
     "timestamp": "2026-06-16T12:18:39",
     "update_type": "Add Quick Note",
     "subject": "Ready for review",

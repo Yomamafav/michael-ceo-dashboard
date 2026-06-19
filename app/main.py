@@ -11,7 +11,19 @@ from app.services.data_store import (
     ensure_storage,
     get_recent_updates,
     get_today_briefing,
+    log_dashboard_action,
     save_mobile_update,
+)
+from app.services.items_store import (
+    CATEGORIES as ITEM_CATEGORIES,
+    CATEGORY_LABELS,
+    ItemNotFoundError,
+    add_item_note,
+    create_follow_up,
+    get_item,
+    mark_deposit_paid,
+    mark_item_complete,
+    mark_payment_received,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -43,6 +55,8 @@ async def dashboard_home(request: Request) -> HTMLResponse:
             "recent_updates": updates_result["updates"],
             "briefing_warning": briefing_result["warning"],
             "updates_warning": updates_result["warning"],
+            "briefing_source": briefing_result["source"],
+            "updates_source": updates_result["source"],
         },
     )
 
@@ -57,6 +71,21 @@ async def mobile_page(request: Request) -> HTMLResponse:
             "update_types": UPDATE_TYPE_OPTIONS,
             "recent_updates": updates_result["updates"],
             "updates_warning": updates_result["warning"],
+            "updates_source": updates_result["source"],
+        },
+    )
+
+
+@app.get("/updates", response_class=HTMLResponse)
+async def updates_page(request: Request) -> HTMLResponse:
+    updates_result = get_recent_updates(limit=50)
+    return templates.TemplateResponse(
+        request,
+        "updates.html",
+        {
+            "recent_updates": updates_result["updates"],
+            "updates_warning": updates_result["warning"],
+            "updates_source": updates_result["source"],
         },
     )
 
@@ -107,13 +136,110 @@ async def mobile_update(
     )
 
 
+@app.get("/api/mobile/updates")
+async def mobile_updates() -> JSONResponse:
+    result = get_recent_updates(limit=50)
+    return JSONResponse(
+        {
+            "status": "ok",
+            "updates": result["updates"],
+            "source": result["source"],
+            "warning": result["warning"],
+        }
+    )
+
+
+@app.get("/api/items/{category}/{item_id}")
+async def item_detail(category: str, item_id: str) -> JSONResponse:
+    if category not in ITEM_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Unknown item category")
+    try:
+        item = get_item(category, item_id)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return JSONResponse({"status": "ok", "item": item, "category": category})
+
+
+@app.post("/api/items/{category}/{item_id}/complete")
+async def item_complete(category: str, item_id: str) -> JSONResponse:
+    if category not in ITEM_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Unknown item category")
+    try:
+        item = mark_item_complete(category, item_id)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Item not found")
+    log_dashboard_action(
+        "Update Job Status",
+        item.get("name", ""),
+        f"Marked {CATEGORY_LABELS[category].lower()} complete: {item.get('job') or item.get('name', '')}",
+    )
+    return JSONResponse({"status": "ok", "item": item})
+
+
+@app.post("/api/items/{category}/{item_id}/note")
+async def item_add_note(category: str, item_id: str, note: str = Form(...)) -> JSONResponse:
+    if category not in ITEM_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Unknown item category")
+    if not note.strip():
+        raise HTTPException(status_code=400, detail="Note text is required")
+    try:
+        item = add_item_note(category, item_id, note.strip())
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Item not found")
+    log_dashboard_action(
+        "Add Job Note",
+        item.get("name", ""),
+        note.strip(),
+    )
+    return JSONResponse({"status": "ok", "item": item})
+
+
+@app.post("/api/items/payments/{item_id}/deposit-paid")
+async def item_deposit_paid(item_id: str) -> JSONResponse:
+    try:
+        item = mark_deposit_paid(item_id)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    log_dashboard_action("Mark Deposit Paid", item.get("name", ""), f"Deposit marked paid for {item.get('job', '')}")
+    return JSONResponse({"status": "ok", "item": item})
+
+
+@app.post("/api/items/payments/{item_id}/payment-received")
+async def item_payment_received(item_id: str) -> JSONResponse:
+    try:
+        item = mark_payment_received(item_id)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    log_dashboard_action("Add Payment Received", item.get("name", ""), f"Payment received for {item.get('job', '')}")
+    return JSONResponse({"status": "ok", "item": item})
+
+
+@app.post("/api/follow-ups")
+async def add_follow_up(
+    name: str = Form(...),
+    phone: str = Form(""),
+    email: str = Form(""),
+    job: str = Form(""),
+    due: str = Form("Today"),
+    channel: str = Form("Call"),
+) -> JSONResponse:
+    if not name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    item = create_follow_up(name=name.strip(), phone=phone.strip(), email=email.strip(), job=job.strip(), due=due.strip() or "Today", channel=channel.strip() or "Call")
+    log_dashboard_action("Add Follow-Up", item["name"], item.get("job") or "New follow-up created")
+    return JSONResponse({"status": "ok", "item": item})
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
 @app.exception_handler(404)
-async def not_found_handler(request: Request, exc: Exception) -> HTMLResponse:
+async def not_found_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
+    if request.url.path.startswith("/api/"):
+        detail = getattr(exc, "detail", "Not found")
+        return JSONResponse({"status": "error", "detail": detail}, status_code=404)
     return templates.TemplateResponse(
         request,
         "error.html",
@@ -123,7 +249,9 @@ async def not_found_handler(request: Request, exc: Exception) -> HTMLResponse:
 
 
 @app.exception_handler(500)
-async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse:
+async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse | JSONResponse:
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"status": "error", "detail": "Internal server error"}, status_code=500)
     return templates.TemplateResponse(
         request,
         "error.html",

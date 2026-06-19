@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Update Log | Michael CEO Dashboard{% endblock %}
+
+{% block content %}
+  <section class="hero-card">
+    <p class="section-label">Update log</p>
+    <h2>Everything saved from mobile</h2>
+    <p>This is the running history of what has been entered so far. Until Google Sheets is live, this is your local audit trail.</p>
+  </section>
+
+  {% if updates_warning %}
+    <section class="notice-card">
+      <p class="section-label">Data Warning</p>
+      <p>{{ updates_warning }}</p>
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <div class="card-head">
+      <h3>All Recent Updates</h3>
+      <span class="source-badge">{{ updates_source }}</span>
+    </div>
+    {% if recent_updates %}
+      {% for item in recent_updates %}
+        <details class="detail-item" {% if loop.first %}open{% endif %}>
+          <summary class="item-row interactive-row">
+            <div>
+              <p>{{ item.update_type }}</p>
+              <span>{{ item.subject }}</span>
+            </div>
+            {% if item.timestamp %}
+              <strong>{{ item.timestamp }}</strong>
+            {% endif %}
+          </summary>
+          <div class="detail-panel">
+            <p><strong>Subject:</strong> {{ item.subject }}</p>
+            <p><strong>Details:</strong> {{ item.details }}</p>
+            {% if item.timestamp %}
+              <p><strong>Saved:</strong> {{ item.timestamp }}</p>
+            {% endif %}
+            <p><strong>Source:</strong> {{ item.source or "mobile" }}</p>
+          </div>
+        </details>
+      {% endfor %}
+    {% else %}
+      <p>No updates saved yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

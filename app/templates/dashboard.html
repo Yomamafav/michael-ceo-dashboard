@@ -24,15 +24,18 @@
 
   <section class="grid">
     <article class="card">
-      <h3>Today's Schedule</h3>
+      <div class="card-head">
+        <h3>Today's Schedule</h3>
+        <span class="source-badge">{{ briefing_source }}</span>
+      </div>
       {% for item in briefing.schedule %}
-        <div class="item-row">
-          <strong>{{ item.time }}</strong>
+        <button type="button" class="item-row interactive-row clickable-item" data-category="schedule" data-id="{{ item.id }}">
+          <strong>{{ item.due }}</strong>
           <div>
-            <p>{{ item.title }}</p>
-            <span>{{ item.detail }}</span>
+            <p>{{ item.name }}</p>
+            <span>{{ item.job }}</span>
           </div>
-        </div>
+        </button>
       {% endfor %}
     </article>
 
@@ -40,74 +43,93 @@
       <h3>4 My4 Construction Revenue</h3>
       <p class="metric">{{ briefing.construction_revenue.today_target }}</p>
       <p>Week booked: {{ briefing.construction_revenue.week_booked }}</p>
-      <div class="subcard">
-        <strong>{{ briefing.construction_revenue.active_job.customer }}</strong>
-        <p>{{ briefing.construction_revenue.active_job.job }}</p>
-        <span>{{ briefing.construction_revenue.active_job.status }}</span>
-        <small>Next: {{ briefing.construction_revenue.active_job.next_step }}</small>
-      </div>
+      <p class="subheading">Construction Jobs</p>
+      {% for item in briefing.construction_jobs %}
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="construction_jobs" data-id="{{ item.id }}">
+          <div>
+            <p>{{ item.name }}</p>
+            <span>{{ item.job }}</span>
+          </div>
+          <strong>{{ item.status }}</strong>
+        </button>
+      {% endfor %}
     </article>
 
     <article class="card accent printing">
       <h3>POG Printing Revenue</h3>
       <p class="metric">{{ briefing.printing_revenue.today_target }}</p>
       <p>Open orders: {{ briefing.printing_revenue.open_orders }}</p>
-      <div class="subcard">
-        <strong>{{ briefing.printing_revenue.featured_task.client }}</strong>
-        <p>{{ briefing.printing_revenue.featured_task.task }}</p>
-        <small>Due {{ briefing.printing_revenue.featured_task.deadline }}</small>
-      </div>
+      <p class="subheading">POG Printing Jobs</p>
+      {% for item in briefing.printing_jobs %}
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="printing_jobs" data-id="{{ item.id }}">
+          <div>
+            <p>{{ item.name }}</p>
+            <span>{{ item.job }}</span>
+          </div>
+          <strong>{{ item.status }} · Due {{ item.due }}</strong>
+        </button>
+      {% endfor %}
     </article>
 
     <article class="card">
-      <h3>Customer Follow-ups</h3>
+      <div class="card-head">
+        <h3>Customer Follow-ups</h3>
+        <button type="button" id="add-follow-up-button" class="ghost-button small-button">+ Add follow-up</button>
+      </div>
       {% for item in briefing.follow_ups %}
-        <div class="item-row compact">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="follow_ups" data-id="{{ item.id }}">
           <div>
             <p>{{ item.name }}</p>
-            <span>{{ item.topic }}</span>
+            <span>{{ item.job }}</span>
           </div>
-          <strong>{{ item.due }} · {{ item.channel }}</strong>
-        </div>
+          <strong>{{ item.due }} · {{ item.status }}</strong>
+        </button>
       {% endfor %}
     </article>
 
     <article class="card">
       <h3>Payments and Deposits</h3>
       {% for item in briefing.payments %}
-        <div class="item-row compact">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="payments" data-id="{{ item.id }}">
           <div>
             <p>{{ item.name }}</p>
-            <span>{{ item.type }}</span>
+            <span>{{ item.job }}</span>
           </div>
           <strong>{{ item.amount }} · {{ item.status }}</strong>
-        </div>
+        </button>
       {% endfor %}
     </article>
 
     <article class="card">
       <h3>Bills and Money</h3>
       {% for item in briefing.bills_money %}
-        <div class="item-row compact">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="bills" data-id="{{ item.id }}">
           <div>
             <p>{{ item.name }}</p>
             <span>Due {{ item.due }}</span>
           </div>
           <strong>{{ item.amount }}</strong>
-        </div>
+        </button>
       {% endfor %}
     </article>
 
     <article class="card">
       <h3>Family Calendar</h3>
       {% for item in briefing.family_calendar %}
-        <div class="item-row">
-          <strong>{{ item.time }}</strong>
-          <div>
-            <p>{{ item.event }}</p>
-            <span>{{ item.location }}</span>
+        <details class="detail-item">
+          <summary class="item-row interactive-row">
+            <strong>{{ item.time }}</strong>
+            <div>
+              <p>{{ item.event }}</p>
+              <span>{{ item.location }}</span>
+            </div>
+          </summary>
+          <div class="detail-panel">
+            <p><strong>Event:</strong> {{ item.event }}</p>
+            <p><strong>Location:</strong> {{ item.location }}</p>
+            <p><strong>Prep:</strong> Make sure transport and gear are ready before {{ item.time }}.</p>
           </div>
-        </div>
+        </details>
       {% endfor %}
     </article>
 
@@ -126,25 +148,45 @@
     <article class="card">
       <h3>AI / Automation Ideas</h3>
       {% for item in briefing.ai_ideas %}
-        <div class="item-row">
-          <div>
-            <p>{{ item.title }}</p>
-            <span>{{ item.impact }}</span>
+        <details class="detail-item">
+          <summary class="item-row interactive-row">
+            <div>
+              <p>{{ item.title }}</p>
+              <span>{{ item.impact }}</span>
+            </div>
+          </summary>
+          <div class="detail-panel">
+            <p><strong>Idea:</strong> {{ item.title }}</p>
+            <p><strong>Why it matters:</strong> {{ item.impact }}</p>
+            <p><strong>Next move:</strong> Turn this into a tracked workflow once the core dashboard data is stable.</p>
           </div>
-        </div>
+        </details>
       {% endfor %}
     </article>
 
     <article class="card">
-      <h3>Recent Mobile Updates</h3>
+      <div class="card-head">
+        <h3>Recent Mobile Updates</h3>
+        <a class="inline-link" href="/updates">Open log</a>
+      </div>
       {% if recent_updates %}
         {% for item in recent_updates %}
-          <div class="item-row">
-            <div>
-              <p>{{ item.update_type }}</p>
-              <span>{{ item.subject }}</span>
+          <details class="detail-item">
+            <summary class="item-row interactive-row">
+              <div>
+                <p>{{ item.update_type }}</p>
+                <span>{{ item.subject }}</span>
+              </div>
+            </summary>
+            <div class="detail-panel">
+              <p><strong>Subject:</strong> {{ item.subject }}</p>
+              <p><strong>Details:</strong> {{ item.details }}</p>
+              {% if item.timestamp %}
+                <p><strong>Saved:</strong> {{ item.timestamp }}</p>
+              {% endif %}
+              <p><strong>Source:</strong> {{ item.source or "mobile" }}</p>
             </div>
-          </div>
+          </details>
         {% endfor %}
       {% else %}
         <p>No updates submitted yet.</p>

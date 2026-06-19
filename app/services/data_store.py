@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.services import items_store
 from app.services.google_sheets import (
     GoogleSheetsConfigError,
     get_google_sheets_service,
@@ -55,6 +56,7 @@ def ensure_storage() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not UPDATES_PATH.exists():
         UPDATES_PATH.write_text("[]", encoding="utf-8")
+    items_store.ensure_items_storage()
 
 
 def is_google_sheets_enabled() -> bool:
@@ -481,32 +483,117 @@ def get_recent_updates(limit: int = 10) -> dict[str, Any]:
         }
 
 
-def get_today_briefing() -> dict[str, Any]:
+def _unified_item(category: str, idx: int, *, name: str = "", phone: str = "", email: str = "",
+                   job: str = "", amount: str = "", status: str = "", due: str = "",
+                   notes: str = "", next_action: str = "") -> dict[str, Any]:
+    return {
+        "id": f"sheet-{category}-{idx}",
+        "category": category,
+        "name": name,
+        "phone": phone,
+        "email": email,
+        "job": job,
+        "amount": amount,
+        "status": status,
+        "due": due,
+        "notes": notes,
+        "next_action": next_action,
+        "update_history": [],
+    }
+
+
+def _local_briefing_with_items() -> dict[str, Any]:
     briefing = get_mock_briefing()
+    items = items_store.load_items()
+    briefing["schedule"] = items["schedule"]
+    briefing["follow_ups"] = items["follow_ups"]
+    briefing["payments"] = items["payments"]
+    briefing["bills_money"] = items["bills"]
+    briefing["construction_jobs"] = items["construction_jobs"]
+    briefing["printing_jobs"] = items["printing_jobs"]
+    return briefing
+
+
+def _attach_unified_lists_from_sheets(briefing: dict[str, Any]) -> dict[str, Any]:
+    active_job = briefing["construction_revenue"]["active_job"]
+    briefing["construction_jobs"] = [
+        _unified_item(
+            "construction_job", 0,
+            name=active_job.get("customer", ""),
+            job=active_job.get("job", ""),
+            amount=briefing["construction_revenue"].get("today_target", ""),
+            status=active_job.get("status", ""),
+            next_action=active_job.get("next_step", ""),
+        )
+    ]
+
+    featured_task = briefing["printing_revenue"]["featured_task"]
+    briefing["printing_jobs"] = [
+        _unified_item(
+            "printing_job", 0,
+            name=featured_task.get("client", ""),
+            job=featured_task.get("task", ""),
+            amount=briefing["printing_revenue"].get("today_target", ""),
+            due=featured_task.get("deadline", ""),
+        )
+    ]
+
+    briefing["follow_ups"] = [
+        _unified_item("follow_up", i, name=row.get("name", ""), job=row.get("topic", ""),
+                       due=row.get("due", ""), notes=row.get("channel", ""))
+        for i, row in enumerate(briefing["follow_ups"])
+    ]
+    briefing["payments"] = [
+        _unified_item("payment", i, name=row.get("name", ""), amount=row.get("amount", ""),
+                       status=row.get("status", ""), notes=row.get("type", ""))
+        for i, row in enumerate(briefing["payments"])
+    ]
+    briefing["bills_money"] = [
+        _unified_item("bill", i, name=row.get("name", ""), amount=row.get("amount", ""),
+                       due=row.get("due", ""))
+        for i, row in enumerate(briefing["bills_money"])
+    ]
+    briefing["schedule"] = [
+        _unified_item("schedule", i, name=row.get("title", ""), job=row.get("detail", ""),
+                       due=row.get("time", ""))
+        for i, row in enumerate(briefing["schedule"])
+    ]
+    return briefing
+
+
+def get_today_briefing() -> dict[str, Any]:
     if not is_google_sheets_enabled():
         return {
-            "briefing": briefing,
+            "briefing": _local_briefing_with_items(),
             "source": "mock_local",
             "warning": None,
         }
 
     try:
+        briefing = _attach_unified_lists_from_sheets(_briefing_from_sheet_rows())
         return {
-            "briefing": _briefing_from_sheet_rows(),
+            "briefing": briefing,
             "source": "google_sheets",
             "warning": None,
         }
     except (GoogleSheetsConfigError, RuntimeError) as exc:
         return {
-            "briefing": briefing,
+            "briefing": _local_briefing_with_items(),
             "source": "mock_local",
             "warning": f"Google Sheets unavailable: {exc}",
         }
 
 
-def save_mobile_update(update_data: dict[str, Any]) -> dict[str, Any]:
+def log_dashboard_action(update_type: str, subject: str, details: str) -> dict[str, Any]:
+    return save_mobile_update(
+        {"update_type": update_type, "subject": subject, "details": details},
+        source="dashboard",
+    )
+
+
+def save_mobile_update(update_data: dict[str, Any], source: str = "mobile") -> dict[str, Any]:
     timestamp = datetime.now().isoformat(timespec="seconds")
-    entry = {"timestamp": timestamp, **update_data}
+    entry = {"timestamp": timestamp, "source": source, **update_data}
     saved_local = save_local_update(entry)
 
     result = {

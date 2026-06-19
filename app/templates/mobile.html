@@ -18,7 +18,10 @@
 
   <section class="mobile-layout">
     <article class="card">
-      <h3>Submit Update</h3>
+      <div class="card-head">
+        <h3>Submit Update</h3>
+        <a class="inline-link" href="/updates">Open log</a>
+      </div>
       <form id="mobile-update-form" class="stack-form">
         <label for="update_type">Update type</label>
         <select id="update_type" name="update_type" required>
@@ -47,24 +50,33 @@
       </div>
     </article>
 
-    <article class="card">
-      <h3>Recent Updates</h3>
+    <article class="card" id="recent-updates-card">
+      <div class="card-head">
+        <h3>Recent Updates</h3>
+        <span class="source-badge">{{ updates_source }}</span>
+      </div>
       {% if recent_updates %}
         {% for item in recent_updates %}
-          <div class="item-row">
-            <div>
-              <p>{{ item.update_type }}</p>
-              <span>{{ item.subject }}</span>
+          <details class="detail-item">
+            <summary class="item-row interactive-row">
+              <div>
+                <p>{{ item.update_type }}</p>
+                <span>{{ item.subject }}</span>
+              </div>
+            </summary>
+            <div class="detail-panel">
+              <p><strong>Subject:</strong> {{ item.subject }}</p>
+              <p><strong>Details:</strong> {{ item.details }}</p>
+              {% if item.timestamp %}
+                <p><strong>Saved:</strong> {{ item.timestamp }}</p>
+              {% endif %}
+              <p><strong>Source:</strong> {{ item.source or "mobile" }}</p>
             </div>
-          </div>
+          </details>
         {% endfor %}
       {% else %}
-        <p>No updates yet.</p>
+        <p class="empty-state">No updates yet.</p>
       {% endif %}
     </article>
   </section>
-{% endblock %}
-
-{% block scripts %}
-  <script src="{{ url_for('static', path='/app.js') }}"></script>
 {% endblock %}
