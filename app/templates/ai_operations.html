@@ -9,6 +9,40 @@
   <p class="cc-subtitle">Agent status &middot; Inbox &middot; Questions &middot; Activity feed</p>
 </section>
 
+<section class="card automation-card" data-refresh-minutes="{{ automation.refresh_minutes }}">
+  <div class="automation-head">
+    <div>
+      <p class="section-label">Automation Loop</p>
+      <h3>15-minute refresh</h3>
+    </div>
+    <span class="ao-status-badge {% if automation.enabled %}ao-badge-scheduled{% else %}ao-badge-error{% endif %}" id="automation-enabled-badge">
+      {{ "Enabled" if automation.enabled else "Disabled" }}
+    </span>
+  </div>
+  <p class="automation-copy">
+    Approved AI actions are picked up every {{ automation.refresh_minutes }} minutes and executed automatically when an execution target is configured.
+  </p>
+  <div class="automation-stats">
+    <span id="automation-last-run">Last run: {{ automation.last_run[:16] | replace("T", " ") if automation.last_run else "Not yet run" }}</span>
+    <span id="automation-summary">Summary: {{ automation.last_summary or automation.last_result }}</span>
+  </div>
+  {% if automation.last_error %}
+    <p class="ao-error-msg" id="automation-error">Error: {{ automation.last_error }}</p>
+  {% else %}
+    <p class="status-text" id="automation-error"></p>
+  {% endif %}
+  <div class="automation-stats">
+    <span id="automation-pending-approvals">Pending approvals: {{ automation.pending_approvals }}</span>
+    <span id="automation-pending-execution">Approved waiting to execute: {{ automation.approved_pending_execution }}</span>
+  </div>
+  <div class="automation-actions">
+    <button type="button" class="ghost-button small-button" id="automation-run-now" {% if automation.is_running %}disabled{% endif %}>
+      {% if automation.is_running %}Cycle running...{% else %}Run cycle now{% endif %}
+    </button>
+    <p class="status-text" id="automation-run-status"></p>
+  </div>
+</section>
+
 <div class="cc-tabs" role="tablist">
   <button class="cc-tab" data-tab="ao-status" role="tab" aria-selected="false">
     Agent Status
@@ -63,7 +97,19 @@
               <p class="ao-agent-name">{{ agent.name }}</p>
               <span class="ao-agent-type-label">{{ agent.agent_type }}</span>
             </div>
-            <span class="ao-status-badge ao-badge-{{ agent.status }}">{{ agent.status | capitalize }}</span>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              {% set pending_count = pending_per_agent.get(agent.agent_type, 0) %}
+              {% if pending_count > 0 %}
+                <span class="cc-badge cc-badge-warn" title="Pending actions in inbox">{{ pending_count }} pending</span>
+              {% endif %}
+              <span class="ao-status-badge ao-badge-{{ agent.status }}" id="ao-badge-{{ agent.id }}">{{ agent.status | capitalize }}</span>
+              <button type="button" class="ghost-button small-button ao-run-btn"
+                data-agent-id="{{ agent.id }}"
+                data-agent-type="{{ agent.agent_type }}"
+                {% if agent.status == 'running' %}disabled{% endif %}>
+                {% if agent.status == 'running' %}Running…{% else %}Run now{% endif %}
+              </button>
+            </div>
           </div>
           {% if agent.description %}
             <p class="ao-agent-desc">{{ agent.description }}</p>
@@ -76,12 +122,16 @@
               <span class="ao-meta-item">Next: {{ agent.next_run[:16] | replace("T", " ") }}</span>
             {% endif %}
           </div>
-          {% if agent.last_result %}
+          {% if agent.status == "running" and agent.current_task %}
+            <p class="ao-current-task">&#9654; {{ agent.current_task }}</p>
+          {% endif %}
+          {% if agent.last_result and agent.status != "running" %}
             <p class="ao-last-result">{{ agent.last_result }}</p>
           {% endif %}
           {% if agent.status == "error" and agent.error_message %}
             <p class="ao-error-msg">Error: {{ agent.error_message }}</p>
           {% endif %}
+          <p class="status-text ao-run-status" id="ao-run-status-{{ agent.id }}"></p>
         </div>
       {% endfor %}
     {% else %}

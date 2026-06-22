@@ -55,6 +55,170 @@ async function postForm(url, formData) {
   return { ok: response.ok, ...payload };
 }
 
+const scheduleCommandCenterRefresh = (delayMs) => {
+  window.setTimeout(() => {
+    const activeTag = document.activeElement?.tagName;
+    const isEditing = activeTag === "INPUT" || activeTag === "TEXTAREA" || activeTag === "SELECT";
+    if (isEditing) {
+      scheduleCommandCenterRefresh(60 * 1000);
+      return;
+    }
+    window.location.reload();
+  }, delayMs);
+};
+
+scheduleCommandCenterRefresh(15 * 60 * 1000);
+const approvalBuilderToggle = document.getElementById("approval-builder-toggle");
+const approvalBuilderWrap = document.getElementById("approval-builder-wrap");
+const approvalBuilderForm = document.getElementById("approval-builder-form");
+const approvalBuilderStatus = document.getElementById("approval-builder-status");
+const approvalWorkflowType = document.getElementById("approval-workflow-type");
+const approvalWorkflowGroups = document.querySelectorAll(".approval-workflow-group");
+const approvalItemCategory = document.getElementById("approval-item-category");
+const approvalItemId = document.getElementById("approval-item-id");
+
+function syncApprovalWorkflowGroups() {
+  if (!approvalWorkflowType) return;
+  const selected = approvalWorkflowType.value;
+  approvalWorkflowGroups.forEach((group) => {
+    group.classList.toggle("hidden", group.dataset.workflow !== selected);
+  });
+}
+
+function syncApprovalItemOptions() {
+  if (!approvalItemCategory || !approvalItemId) return;
+  const selectedCategory = approvalItemCategory.value;
+  const options = Array.from(approvalItemId.options);
+  let firstVisible = null;
+  options.forEach((option) => {
+    const matches = option.dataset.category === selectedCategory;
+    option.hidden = !matches;
+    if (matches && !firstVisible) {
+      firstVisible = option;
+    }
+  });
+  if (firstVisible) {
+    approvalItemId.value = firstVisible.value;
+  }
+}
+
+if (approvalBuilderToggle && approvalBuilderWrap) {
+  approvalBuilderToggle.addEventListener("click", () => {
+    const hidden = approvalBuilderWrap.classList.toggle("hidden");
+    approvalBuilderToggle.textContent = hidden ? "+ New approval" : "Cancel";
+  });
+}
+
+if (approvalWorkflowType) {
+  approvalWorkflowType.addEventListener("change", syncApprovalWorkflowGroups);
+  syncApprovalWorkflowGroups();
+}
+
+if (approvalItemCategory) {
+  approvalItemCategory.addEventListener("change", syncApprovalItemOptions);
+  syncApprovalItemOptions();
+}
+
+function buildApprovalRequest(formData) {
+  const workflowType = formData.get("workflow_type");
+
+  if (workflowType === "mobile_update") {
+    const subject = (formData.get("mobile_subject") || "").toString().trim();
+    const details = (formData.get("mobile_details") || "").toString().trim();
+    if (!subject || !details) {
+      return { error: "Mobile update approvals need both subject and details." };
+    }
+    return {
+      title: formData.get("mobile_title") || "Post mobile update",
+      description: formData.get("mobile_description") || "",
+      execution_type: "mobile_update",
+      execution_payload: JSON.stringify({
+        update_type: formData.get("mobile_update_type") || "Add Quick Note",
+        subject,
+        details,
+      }),
+    };
+  }
+
+  if (workflowType === "create_follow_up") {
+    const name = (formData.get("followup_name") || "").toString().trim();
+    if (!name) {
+      return { error: "Follow-up approvals need a customer or contact name." };
+    }
+    return {
+      title: formData.get("followup_title") || "Create follow-up",
+      description: formData.get("followup_description") || "",
+      execution_type: "create_follow_up",
+      execution_payload: JSON.stringify({
+        name,
+        job: formData.get("followup_job") || "",
+        phone: formData.get("followup_phone") || "",
+        email: formData.get("followup_email") || "",
+        due: formData.get("followup_due") || "Today",
+        channel: formData.get("followup_channel") || "Call",
+      }),
+    };
+  }
+
+  if (workflowType === "item_action") {
+    const category = (formData.get("item_category") || "").toString();
+    const itemId = (formData.get("item_id") || "").toString();
+    if (!category || !itemId) {
+      return { error: "Item action approvals need a category and item." };
+    }
+    const fields = {};
+    if (formData.get("item_status")) fields.status = formData.get("item_status");
+    if (formData.get("item_due")) fields.due = formData.get("item_due");
+    if (formData.get("item_next_action")) fields.next_action = formData.get("item_next_action");
+    if (formData.get("item_note")) fields.notes = formData.get("item_note");
+
+    return {
+      title: formData.get("item_title") || "Change dashboard item",
+      description: formData.get("item_description") || "",
+      execution_type: "item_action",
+      execution_payload: JSON.stringify({
+        category,
+        item_id: itemId,
+        action: formData.get("item_action") || "mark_complete",
+        note: formData.get("item_note") || "",
+        fields,
+      }),
+    };
+  }
+
+  return null;
+}
+
+if (approvalBuilderForm) {
+  approvalBuilderForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (approvalBuilderStatus) approvalBuilderStatus.textContent = "Creating approval...";
+
+    const formData = new FormData(approvalBuilderForm);
+    const request = buildApprovalRequest(formData);
+    if (request?.error) {
+      if (approvalBuilderStatus) approvalBuilderStatus.textContent = request.error;
+      return;
+    }
+    if (!request) {
+      if (approvalBuilderStatus) approvalBuilderStatus.textContent = "Unknown workflow type.";
+      return;
+    }
+
+    const payload = new FormData();
+    Object.entries(request).forEach(([key, value]) => payload.append(key, value));
+    const response = await postForm("/api/cc/approvals", payload);
+    if (!response.ok) {
+      if (approvalBuilderStatus) approvalBuilderStatus.textContent = response.detail || "Unable to create approval.";
+      return;
+    }
+
+    if (approvalBuilderStatus) approvalBuilderStatus.textContent = "Approval created.";
+    window.location.hash = "approvals";
+    window.location.reload();
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Command Inbox — new task form
 // ---------------------------------------------------------------------------

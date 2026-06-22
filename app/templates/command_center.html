@@ -245,6 +245,137 @@
     <p class="cc-section-hint">Review proposed changes and give the agent a green light, send it back, or reject it.</p>
   </div>
 
+  <div class="card approval-builder-card">
+    <div class="cc-section-head">
+      <div>
+        <p class="section-label">Create executable approval</p>
+        <h3>New approval workflow</h3>
+      </div>
+      <button type="button" class="ghost-button small-button" id="approval-builder-toggle">+ New approval</button>
+    </div>
+
+    <div id="approval-builder-wrap" class="hidden">
+      <form id="approval-builder-form" class="stack-form">
+        <label for="approval-workflow-type">Workflow type</label>
+        <select id="approval-workflow-type" name="workflow_type" required>
+          <option value="mobile_update">Post mobile update</option>
+          <option value="create_follow_up">Create follow-up</option>
+          <option value="item_action">Change dashboard item</option>
+        </select>
+
+        <div class="approval-workflow-group" data-workflow="mobile_update">
+          <label for="approval-mobile-title">Approval title</label>
+          <input id="approval-mobile-title" name="mobile_title" type="text" value="Post mobile update">
+
+          <label for="approval-mobile-description">Description</label>
+          <textarea id="approval-mobile-description" name="mobile_description" rows="2" placeholder="What should this update log?"></textarea>
+
+          <label for="approval-mobile-update-type">Update type</label>
+          <select id="approval-mobile-update-type" name="mobile_update_type">
+            <option value="Add Customer">Add Customer</option>
+            <option value="Add Job Note">Add Job Note</option>
+            <option value="Update Job Status">Update Job Status</option>
+            <option value="Mark Deposit Paid">Mark Deposit Paid</option>
+            <option value="Add Payment Received">Add Payment Received</option>
+            <option value="Add Follow-Up">Add Follow-Up</option>
+            <option value="Add Material Purchase">Add Material Purchase</option>
+            <option value="Add Transaction">Add Transaction</option>
+            <option value="Add Quick Note" selected>Add Quick Note</option>
+          </select>
+
+          <label for="approval-mobile-subject">Subject</label>
+          <input id="approval-mobile-subject" name="mobile_subject" type="text" placeholder="Jose Ramirez deposit">
+
+          <label for="approval-mobile-details">Details</label>
+          <textarea id="approval-mobile-details" name="mobile_details" rows="3" placeholder="What should be written to the log?"></textarea>
+        </div>
+
+        <div class="approval-workflow-group hidden" data-workflow="create_follow_up">
+          <label for="approval-followup-title">Approval title</label>
+          <input id="approval-followup-title" name="followup_title" type="text" value="Create follow-up">
+
+          <label for="approval-followup-description">Description</label>
+          <textarea id="approval-followup-description" name="followup_description" rows="2" placeholder="Why should this follow-up be created?"></textarea>
+
+          <label for="approval-followup-name">Customer / contact name</label>
+          <input id="approval-followup-name" name="followup_name" type="text" placeholder="Customer name">
+
+          <label for="approval-followup-job">Topic / job</label>
+          <input id="approval-followup-job" name="followup_job" type="text" placeholder="Fence repair estimate">
+
+          <label for="approval-followup-phone">Phone</label>
+          <input id="approval-followup-phone" name="followup_phone" type="text">
+
+          <label for="approval-followup-email">Email</label>
+          <input id="approval-followup-email" name="followup_email" type="text">
+
+          <label for="approval-followup-due">Due</label>
+          <input id="approval-followup-due" name="followup_due" type="text" value="Today">
+
+          <label for="approval-followup-channel">Channel</label>
+          <select id="approval-followup-channel" name="followup_channel">
+            <option value="Call">Call</option>
+            <option value="Text">Text</option>
+            <option value="Email">Email</option>
+          </select>
+        </div>
+
+        <div class="approval-workflow-group hidden" data-workflow="item_action">
+          <label for="approval-item-title">Approval title</label>
+          <input id="approval-item-title" name="item_title" type="text" value="Change dashboard item">
+
+          <label for="approval-item-description">Description</label>
+          <textarea id="approval-item-description" name="item_description" rows="2" placeholder="What should change?"></textarea>
+
+          <label for="approval-item-action">Action</label>
+          <select id="approval-item-action" name="item_action">
+            <option value="mark_complete">Mark complete / paid</option>
+            <option value="add_note">Add note</option>
+            <option value="deposit_paid">Mark deposit paid</option>
+            <option value="payment_received">Mark payment received</option>
+            <option value="update_fields">Update fields</option>
+          </select>
+
+          <label for="approval-item-category">Category</label>
+          <select id="approval-item-category" name="item_category">
+            <option value="schedule">Schedule</option>
+            <option value="follow_ups">Follow-ups</option>
+            <option value="payments">Payments</option>
+            <option value="bills">Bills</option>
+            <option value="construction_jobs">Construction jobs</option>
+            <option value="printing_jobs">Printing jobs</option>
+          </select>
+
+          <label for="approval-item-id">Item</label>
+          <select id="approval-item-id" name="item_id">
+            {% for category_name, items in item_options.items() %}
+              {% for item in items %}
+                <option value="{{ item.id }}" data-category="{{ category_name }}">
+                  {{ category_name | replace("_", " ") | title }} · {{ item.name }}{% if item.job %} · {{ item.job }}{% endif %}
+                </option>
+              {% endfor %}
+            {% endfor %}
+          </select>
+
+          <label for="approval-item-note">Note text</label>
+          <textarea id="approval-item-note" name="item_note" rows="2" placeholder="Used for add note or field updates."></textarea>
+
+          <label for="approval-item-status">Status override</label>
+          <input id="approval-item-status" name="item_status" type="text" placeholder="Used for update fields only">
+
+          <label for="approval-item-due">Due override</label>
+          <input id="approval-item-due" name="item_due" type="text" placeholder="Used for update fields only">
+
+          <label for="approval-item-next-action">Next action override</label>
+          <input id="approval-item-next-action" name="item_next_action" type="text" placeholder="Used for update fields only">
+        </div>
+
+        <button type="submit">Create approval</button>
+        <p class="status-text" id="approval-builder-status"></p>
+      </form>
+    </div>
+  </div>
+
   {% if approvals %}
     {% for ap in approvals %}
       <div class="cc-approval-card card" id="ap-{{ ap.id }}">
@@ -260,6 +391,16 @@
         </div>
         <p class="cc-approval-title">{{ ap.title }}</p>
         <p class="cc-approval-desc">{{ ap.description }}</p>
+        {% if ap.execution_type %}
+          <div class="cc-approval-execution">
+            <p><strong>Execution:</strong> {{ ap.execution_type }}</p>
+            <p><strong>Target:</strong> {{ ap.execution_target or "Not set" }}</p>
+            <p><strong>Run status:</strong> {{ ap.execution_status | replace("_", " ") | capitalize }}</p>
+            {% if ap.execution_result %}
+              <p class="cc-agent-notes">Execution note: {{ ap.execution_result }}</p>
+            {% endif %}
+          </div>
+        {% endif %}
         {% if ap.files_affected %}
           <details class="cc-files-detail">
             <summary class="cc-files-summary">{{ ap.files_affected | length }} file{{ "s" if ap.files_affected | length != 1 else "" }} affected</summary>

@@ -54,6 +54,89 @@ async function postForm(url, formData) {
 }
 
 // ---------------------------------------------------------------------------
+// Automation loop status + manual run
+// ---------------------------------------------------------------------------
+
+const automationCard = document.querySelector(".automation-card");
+const automationRunNow = document.getElementById("automation-run-now");
+const automationRunStatus = document.getElementById("automation-run-status");
+
+function renderAutomationState(automation) {
+  if (!automation) return;
+
+  const enabledBadge = document.getElementById("automation-enabled-badge");
+  const lastRunEl = document.getElementById("automation-last-run");
+  const summaryEl = document.getElementById("automation-summary");
+  const errorEl = document.getElementById("automation-error");
+  const pendingEl = document.getElementById("automation-pending-approvals");
+  const pendingExecutionEl = document.getElementById("automation-pending-execution");
+
+  if (enabledBadge) {
+    enabledBadge.className = `ao-status-badge ${automation.enabled ? "ao-badge-scheduled" : "ao-badge-error"}`;
+    enabledBadge.textContent = automation.enabled ? "Enabled" : "Disabled";
+  }
+  if (lastRunEl) {
+    lastRunEl.textContent = `Last run: ${automation.last_run ? automation.last_run.slice(0, 16).replace("T", " ") : "Not yet run"}`;
+  }
+  if (summaryEl) {
+    summaryEl.textContent = `Summary: ${automation.last_summary || automation.last_result || "No summary yet."}`;
+  }
+  if (errorEl) {
+    errorEl.textContent = automation.last_error ? `Error: ${automation.last_error}` : "";
+  }
+  if (pendingEl) {
+    pendingEl.textContent = `Pending approvals: ${automation.pending_approvals ?? 0}`;
+  }
+  if (pendingExecutionEl) {
+    pendingExecutionEl.textContent = `Approved waiting to execute: ${automation.approved_pending_execution ?? 0}`;
+  }
+  if (automationRunNow) {
+    automationRunNow.disabled = Boolean(automation.is_running);
+    automationRunNow.textContent = automation.is_running ? "Cycle running..." : "Run cycle now";
+  }
+}
+
+if (automationRunNow) {
+  automationRunNow.addEventListener("click", async () => {
+    automationRunNow.disabled = true;
+    if (automationRunStatus) automationRunStatus.textContent = "Running automation cycle...";
+
+    const response = await fetch("/api/automation/run", { method: "POST" });
+    const payload = await response.json();
+
+    if (!response.ok && response.status !== 409) {
+      if (automationRunStatus) automationRunStatus.textContent = payload.detail || "Unable to run automation.";
+      automationRunNow.disabled = false;
+      automationRunNow.textContent = "Run cycle now";
+      return;
+    }
+
+    renderAutomationState(payload.automation);
+    if (automationRunStatus) {
+      automationRunStatus.textContent = response.status === 409
+        ? (payload.detail || "Automation is already running.")
+        : "Automation cycle completed.";
+    }
+  });
+}
+
+if (automationCard) {
+  const refreshMinutes = parseInt(automationCard.dataset.refreshMinutes || "15", 10) || 15;
+  const scheduleRefresh = (delayMs) => {
+    window.setTimeout(() => {
+      const activeTag = document.activeElement?.tagName;
+      const isEditing = activeTag === "INPUT" || activeTag === "TEXTAREA" || activeTag === "SELECT";
+      if (isEditing) {
+        scheduleRefresh(60 * 1000);
+        return;
+      }
+      window.location.reload();
+    }, delayMs);
+  };
+  scheduleRefresh(refreshMinutes * 60 * 1000);
+}
+
+// ---------------------------------------------------------------------------
 // Agent Status — register agent form
 // ---------------------------------------------------------------------------
 
@@ -111,6 +194,42 @@ function appendAgentCard(agent) {
   `;
   list.appendChild(card);
 }
+
+// ---------------------------------------------------------------------------
+// Agent Status — Run now buttons
+// ---------------------------------------------------------------------------
+
+document.querySelectorAll(".ao-run-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const agentId = btn.dataset.agentId;
+    const statusEl = document.getElementById(`ao-run-status-${agentId}`);
+    const badgeEl = document.getElementById(`ao-badge-${agentId}`);
+
+    btn.disabled = true;
+    btn.textContent = "Running…";
+    if (badgeEl) {
+      badgeEl.className = "ao-status-badge ao-badge-running";
+      badgeEl.textContent = "Running";
+    }
+    if (statusEl) statusEl.textContent = "Dispatching to OpenJarvis…";
+
+    const response = await fetch(`/api/aiops/agents/${agentId}/run`, { method: "POST" });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      btn.disabled = false;
+      btn.textContent = "Run now";
+      if (badgeEl) {
+        badgeEl.className = "ao-status-badge ao-badge-error";
+        badgeEl.textContent = "Error";
+      }
+      if (statusEl) statusEl.textContent = payload.detail || "Failed to start agent.";
+      return;
+    }
+
+    if (statusEl) statusEl.textContent = "Agent started — results will appear in Inbox when complete.";
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Agent Inbox — action / dismiss buttons

@@ -13,6 +13,7 @@ TASK_STATUSES = ("New", "In Progress", "Blocked", "Waiting for Michael", "Comple
 TASK_PRIORITIES = ("High", "Medium", "Low")
 APPROVAL_DECISIONS = ("approved", "rejected", "needs_changes")
 QUESTION_STATUSES = ("pending", "answered")
+APPROVAL_EXECUTION_STATUSES = ("pending", "completed", "failed", "not_required")
 
 
 def _default_data() -> dict[str, Any]:
@@ -161,6 +162,12 @@ def _default_data() -> dict[str, Any]:
                 "status": "pending",
                 "feedback": "",
                 "decided_at": None,
+                "execution_type": "",
+                "execution_target": "",
+                "execution_payload": {},
+                "execution_status": "not_required",
+                "execution_result": "",
+                "executed_at": None,
                 "files_affected": [
                     "app/main.py",
                     "app/services/command_center_store.py",
@@ -215,6 +222,24 @@ def _migrate(data: dict[str, Any]) -> None:
     for ap in data.get("approvals", []):
         if "requested_by" not in ap:
             ap["requested_by"] = "Claude Code"
+            changed = True
+        if "execution_type" not in ap:
+            ap["execution_type"] = ""
+            changed = True
+        if "execution_target" not in ap:
+            ap["execution_target"] = ""
+            changed = True
+        if "execution_payload" not in ap:
+            ap["execution_payload"] = {}
+            changed = True
+        if "execution_status" not in ap:
+            ap["execution_status"] = "pending" if ap.get("execution_type") else "not_required"
+            changed = True
+        if "execution_result" not in ap:
+            ap["execution_result"] = ""
+            changed = True
+        if "executed_at" not in ap:
+            ap["executed_at"] = None
             changed = True
     if changed:
         save_cc(data)
@@ -403,6 +428,26 @@ def create_approval(fields: dict[str, Any]) -> dict[str, Any]:
     else:
         files_affected = list(raw_files)
 
+    raw_execution_payload = fields.get("execution_payload", {})
+    execution_payload: dict[str, Any]
+    if isinstance(raw_execution_payload, dict):
+        execution_payload = raw_execution_payload
+    else:
+        raw_payload_text = str(raw_execution_payload).strip()
+        if raw_payload_text:
+            try:
+                execution_payload = json.loads(raw_payload_text)
+                if not isinstance(execution_payload, dict):
+                    execution_payload = {"value": execution_payload}
+            except json.JSONDecodeError:
+                execution_payload = {"raw": raw_payload_text}
+        else:
+            execution_payload = {}
+
+    execution_type = str(fields.get("execution_type", "")).strip()
+    execution_target = str(fields.get("execution_target", "")).strip()
+    execution_status = "pending" if execution_type else "not_required"
+
     approval: dict[str, Any] = {
         "id": new_id,
         "title": str(fields.get("title", "")).strip(),
@@ -412,6 +457,12 @@ def create_approval(fields: dict[str, Any]) -> dict[str, Any]:
         "status": "pending",
         "feedback": "",
         "decided_at": None,
+        "execution_type": execution_type,
+        "execution_target": execution_target,
+        "execution_payload": execution_payload,
+        "execution_status": execution_status,
+        "execution_result": "",
+        "executed_at": None,
         "files_affected": files_affected,
     }
     data["approvals"].insert(0, approval)
@@ -431,8 +482,35 @@ def decide_approval(ap_id: str, decision: str, feedback: str = "") -> dict[str, 
     approval["status"] = decision
     approval["feedback"] = feedback.strip()
     approval["decided_at"] = _now_iso()
+    if decision != "approved":
+        approval["execution_status"] = "not_required"
+        approval["executed_at"] = None
+        if feedback.strip():
+            approval["execution_result"] = feedback.strip()
+    elif approval.get("execution_type"):
+        approval["execution_status"] = "pending"
+        approval["execution_result"] = ""
+        approval["executed_at"] = None
+    else:
+        approval["execution_status"] = "not_required"
+        approval["execution_result"] = "Approved. No execution action configured."
+        approval["executed_at"] = _now_iso()
     save_cc(data)
     # AUTOMATION HOOK: if approved, trigger the pending code change; if rejected, surface to agent
     # future: if decision == "approved": trigger_pending_change(approval)
     # future: elif decision in ("rejected", "needs_changes"): notify_agent(approval, feedback)
+    return approval
+
+
+def mark_approval_execution(ap_id: str, execution_status: str, execution_result: str = "") -> dict[str, Any]:
+    if execution_status not in APPROVAL_EXECUTION_STATUSES:
+        raise ValueError(f"Invalid execution status: {execution_status}")
+    data = load_cc()
+    approval = next((a for a in data["approvals"] if a["id"] == ap_id), None)
+    if approval is None:
+        raise KeyError(f"Approval {ap_id} not found")
+    approval["execution_status"] = execution_status
+    approval["execution_result"] = execution_result.strip()
+    approval["executed_at"] = _now_iso() if execution_status in ("completed", "failed", "not_required") else None
+    save_cc(data)
     return approval

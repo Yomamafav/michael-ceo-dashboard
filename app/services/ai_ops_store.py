@@ -25,6 +25,7 @@ def _default_data() -> dict[str, Any]:
                 "status": "idle",
                 "last_run": "",
                 "next_run": "",
+                "current_task": "",
                 "last_result": "Not yet run.",
                 "error_message": "",
                 "registered_at": datetime.now().isoformat(timespec="seconds"),
@@ -32,6 +33,15 @@ def _default_data() -> dict[str, Any]:
         ],
         "inbox": [],
         "activity": [],
+        "automation": {
+            "enabled": True,
+            "refresh_minutes": 15,
+            "last_run": "",
+            "last_result": "Automation loop not started yet.",
+            "last_error": "",
+            "last_summary": "",
+            "is_running": False,
+        },
     }
 
 
@@ -93,6 +103,7 @@ def register_agent(fields: dict[str, Any]) -> dict[str, Any]:
         "status": "idle",
         "last_run": "",
         "next_run": str(fields.get("next_run", "")).strip(),
+        "current_task": "",
         "last_result": "",
         "error_message": "",
         "registered_at": _now_iso(),
@@ -113,6 +124,8 @@ def update_agent_status(agent_id: str, fields: dict[str, Any]) -> dict[str, Any]
         agent["last_run"] = str(fields["last_run"]).strip()
     if fields.get("next_run") is not None:
         agent["next_run"] = str(fields["next_run"]).strip()
+    if fields.get("current_task") is not None:
+        agent["current_task"] = str(fields["current_task"]).strip()
     if fields.get("last_result") is not None:
         agent["last_result"] = str(fields["last_result"]).strip()
     if fields.get("error_message") is not None:
@@ -191,3 +204,32 @@ def add_activity(fields: dict[str, Any]) -> dict[str, Any]:
         data["activity"] = data["activity"][:200]
     _save(data)
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Automation State
+# ---------------------------------------------------------------------------
+
+def get_automation_state() -> dict[str, Any]:
+    return _load()["automation"]
+
+
+def update_automation_state(fields: dict[str, Any]) -> dict[str, Any]:
+    data = _load()
+    automation = data["automation"]
+    if fields.get("enabled") is not None:
+        automation["enabled"] = bool(fields["enabled"])
+    if fields.get("refresh_minutes") is not None:
+        automation["refresh_minutes"] = int(fields["refresh_minutes"])
+    if fields.get("last_run") is not None:
+        automation["last_run"] = str(fields["last_run"]).strip()
+    if fields.get("last_result") is not None:
+        automation["last_result"] = str(fields["last_result"]).strip()
+    if fields.get("last_error") is not None:
+        automation["last_error"] = str(fields["last_error"]).strip()
+    if fields.get("last_summary") is not None:
+        automation["last_summary"] = str(fields["last_summary"]).strip()
+    if fields.get("is_running") is not None:
+        automation["is_running"] = bool(fields["is_running"])
+    _save(data)
+    return automation

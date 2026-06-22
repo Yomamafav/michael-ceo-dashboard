@@ -43,6 +43,8 @@ Phase 1 intentionally keeps item-level actions (mark complete, add note, deposit
 
 - Dashboard home page at `/`
 - Mobile update page at `/mobile`
+- Command Center at `/command-center`
+- AI Operations at `/ai-operations`
 - JSON daily briefing endpoint at `/api/briefing/today`
 - Mobile update POST endpoint at `/api/mobile/update`
 - Health endpoint at `/health`
@@ -50,6 +52,45 @@ Phase 1 intentionally keeps item-level actions (mark complete, add note, deposit
 - Local JSON persistence for submitted mobile updates
 - Optional Google Sheets integration for dashboard reads and mobile update writes
 - Graceful fallback to local data when Google Sheets is disabled or fails
+- 15-minute automation loop for scheduled agent runs and approved AI actions
+
+## Phase 2: AI Automation Loop
+
+The dashboard now has a lightweight local automation layer for AI operations.
+
+- `/ai-operations` shows automation status, pending approvals, last run, last summary, and a manual `Run cycle now` button.
+- The app refreshes the `Command Center` and `AI Operations` pages every 15 minutes when idle, so approved actions and agent results appear without a manual reload.
+- A background loop inside FastAPI runs every 15 minutes when `AI_AUTOMATION_ENABLED=true`.
+- Approved items in the approval queue can now carry execution metadata so the automation loop can execute them automatically.
+
+### Approval execution model
+
+Approvals can optionally include:
+
+- `execution_type`
+- `execution_target`
+- `execution_payload`
+
+Current supported execution type:
+
+- `agent_run`: dispatches a registered AI agent by `agent_id` or `agent_type`
+
+Also supported now:
+
+- `mobile_update`: writes a mobile/update-log entry and writes to Google Sheets too when enabled
+- `create_follow_up`: creates a new follow-up in the dashboard store and syncs to Sheets when enabled
+- `item_action`: runs an item action such as `mark_complete`, `add_note`, `deposit_paid`, `payment_received`, or `update_fields`
+- `cc_create`: creates a task, question, approval, or change-log entry
+- `dashboard_action`: writes a dashboard action/update-log entry
+
+If an approval is approved with no execution target, it is marked as approved with no execution action required. If it is approved with `execution_type=agent_run`, the automation loop will pick it up and attempt execution on the next cycle.
+
+### Automation env vars
+
+```env
+AI_AUTOMATION_ENABLED=true
+AI_AUTOMATION_REFRESH_MINUTES=15
+```
 
 ## Setup
 
@@ -72,6 +113,98 @@ uvicorn app.main:app --reload
 - `http://127.0.0.1:8000/mobile`
 - `http://127.0.0.1:8000/api/briefing/today`
 - `http://127.0.0.1:8000/health`
+
+## Local Voice Agent
+
+You now have a separate local voice environment for Jarvis under `.venv-voice`. This is intentionally separate from the main FastAPI app environment so voice and wake-word packages do not destabilize the dashboard runtime.
+
+### What this first version does
+
+- Always-on local wake word support using `hey_jarvis`
+- Push-to-talk mode for easier testing
+- Speech-to-text using OpenAI transcription
+- Spoken replies using OpenAI text-to-speech
+- Simple direct dashboard commands:
+  - open dashboard
+  - open mobile
+  - open updates
+  - open command center
+  - open ai operations
+  - check health
+  - what's next / today's briefing
+  - quick note ...
+
+### Voice setup
+
+1. Activate the voice environment:
+
+```powershell
+.\.venv-voice\Scripts\Activate.ps1
+```
+
+2. Verify the installed stack:
+
+```powershell
+python scripts\check_voice_stack.py
+```
+
+3. Add `OPENAI_API_KEY` to `.env`.
+
+4. Keep the dashboard app running locally, ideally at:
+
+```text
+http://127.0.0.1:8014
+```
+
+If you use another port, set `JARVIS_DASHBOARD_URL` in `.env`.
+
+### Voice env vars
+
+```env
+OPENAI_API_KEY=
+JARVIS_DASHBOARD_URL=http://127.0.0.1:8014
+JARVIS_TEXT_MODEL=gpt-5.4-mini
+JARVIS_STT_MODEL=gpt-4o-transcribe
+JARVIS_TTS_MODEL=gpt-4o-mini-tts
+JARVIS_TTS_VOICE=alloy
+JARVIS_WAKE_WORD=hey_jarvis
+JARVIS_WAKE_THRESHOLD=0.5
+JARVIS_INPUT_DEVICE=
+JARVIS_OUTPUT_DEVICE=
+JARVIS_SAMPLE_RATE=16000
+```
+
+### Useful voice commands
+
+List devices:
+
+```powershell
+python scripts\voice_agent.py --list-devices
+```
+
+Run one text command without audio:
+
+```powershell
+python scripts\voice_agent.py --once "what's next"
+```
+
+Run push-to-talk mode:
+
+```powershell
+python scripts\voice_agent.py --push-to-talk
+```
+
+Run wake-word mode:
+
+```powershell
+python scripts\voice_agent.py --wake-word
+```
+
+### Notes
+
+- Wake-word mode uses the local `hey_jarvis` model from `openWakeWord`.
+- General conversation and transcription need `OPENAI_API_KEY`.
+- Local dashboard commands still work even if the OpenAI key is missing.
 
 ## Google Sheets Integration
 

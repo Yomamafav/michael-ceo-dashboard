@@ -93,6 +93,59 @@ a {
   margin-bottom: 1rem;
 }
 
+.brand-strip {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.brand-card {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 1rem;
+  align-items: center;
+  background: rgba(255, 250, 242, 0.9);
+  border: 1px solid rgba(220, 207, 183, 0.9);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+}
+
+.brand-card-construction {
+  background: linear-gradient(135deg, rgba(129, 83, 41, 0.12), rgba(255, 250, 242, 0.95));
+}
+
+.brand-card-printing {
+  background: linear-gradient(135deg, rgba(45, 91, 159, 0.12), rgba(255, 250, 242, 0.95));
+}
+
+.brand-logo,
+.section-logo {
+  object-fit: cover;
+  display: block;
+}
+
+.brand-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  border: 1px solid rgba(220, 207, 183, 0.8);
+  background: #fff;
+}
+
+.card-head-brand {
+  align-items: flex-start;
+}
+
+.section-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  border: 1px solid rgba(220, 207, 183, 0.85);
+  background: #fff;
+  flex-shrink: 0;
+}
+
 .notice-card {
   margin-bottom: 1rem;
   padding: 1rem 1.25rem;
@@ -254,6 +307,19 @@ a {
   font-weight: 700;
 }
 
+.approval-builder-card {
+  margin-bottom: 1rem;
+}
+
+.approval-workflow-group {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -311,6 +377,25 @@ a {
   display: inline-flex;
   padding: 0.5rem 0.9rem;
   border-radius: 999px;
+}
+
+.filter-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+#dashboard-grid.hide-done .clickable-item[data-status="Complete"],
+#dashboard-grid.hide-done .clickable-item[data-status="Done"],
+#dashboard-grid.hide-done .clickable-item[data-status="Paid"],
+#dashboard-grid.hide-done .clickable-item[data-status="Received"] {
+  display: none;
+}
+
+.modal-action-danger {
+  background: rgba(185, 28, 28, 0.08) !important;
+  border-color: rgba(185, 28, 28, 0.3) !important;
+  color: #b91c1c !important;
 }
 
 .modal-overlay {
@@ -923,6 +1008,16 @@ a {
   padding: 0.4rem 0.75rem;
 }
 
+.ao-current-task {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #1a7a4a;
+  background: #eafaf3;
+  border-radius: 8px;
+  padding: 0.3rem 0.75rem;
+  font-weight: 500;
+}
+
 /* Status dot */
 .ao-status-dot {
   width: 9px;
@@ -950,6 +1045,59 @@ a {
 .ao-badge-error     { background: #fde8e8; color: #c0392b; }
 .ao-badge-scheduled { background: #dce8fb; color: #2d5b9f; }
 .ao-badge-disabled  { background: #f5f5f5; color: #aaa; }
+
+.automation-card {
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.automation-head,
+.automation-actions,
+.automation-stats,
+.cc-approval-execution {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.automation-head {
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.automation-copy {
+  margin: 0 0 0.75rem;
+}
+
+.automation-stats {
+  margin-top: 0.5rem;
+}
+
+.automation-stats span {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.automation-actions {
+  margin-top: 0.85rem;
+}
+
+.automation-actions .ghost-button {
+  width: auto;
+  min-width: 11rem;
+}
+
+.cc-approval-execution {
+  margin: 0.65rem 0;
+}
+
+.cc-approval-execution p {
+  margin: 0;
+}
 
 /* Register form */
 .ao-register-form {
@@ -1133,6 +1281,10 @@ a {
 
   .mobile-layout {
     grid-template-columns: 1.15fr 0.85fr;
+  }
+
+  .brand-strip {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

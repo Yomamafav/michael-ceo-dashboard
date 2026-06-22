@@ -1,5 +1,10 @@
+import asyncio
+import os
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -21,10 +26,13 @@ from app.services.items_store import (
     add_item_note,
     create_follow_up,
     create_item,
+    delete_item,
     get_item,
+    load_items,
     mark_deposit_paid,
     mark_item_complete,
     mark_payment_received,
+    update_item,
 )
 from app.services.command_center_store import (
     TASK_STATUSES,
@@ -55,6 +63,13 @@ from app.services.ai_ops_store import (
     get_activity,
     add_activity,
 )
+from app.services.automation_service import (
+    automation_enabled,
+    build_automation_snapshot,
+    get_refresh_minutes,
+    run_automation_cycle,
+    schedule_next_run_for_agent,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -73,6 +88,21 @@ def on_startup() -> None:
     ensure_storage()
     ensure_cc_storage()
     ensure_ai_ops_storage()
+    app.state.automation_lock = asyncio.Lock()
+    app.state.automation_task = None
+    if automation_enabled():
+        app.state.automation_task = asyncio.create_task(_automation_loop())
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    task = getattr(app.state, "automation_task", None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -226,6 +256,40 @@ async def item_add_note(category: str, item_id: str, note: str = Form(...)) -> J
     return JSONResponse({"status": "ok", "item": item})
 
 
+@app.patch("/api/items/{category}/{item_id}")
+async def edit_item(category: str, item_id: str, request: Request) -> JSONResponse:
+    if category not in ITEM_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Unknown item category")
+    form = await request.form()
+    fields = {key: str(value) for key, value in form.items()}
+    try:
+        item = update_item(category, item_id, fields)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Item not found")
+    log_dashboard_action(
+        "Edit Item",
+        item.get("name", ""),
+        f"Updated {CATEGORY_LABELS[category].lower()}: {item.get('job') or item.get('name', '')}",
+    )
+    return JSONResponse({"status": "ok", "item": item})
+
+
+@app.post("/api/items/{category}/{item_id}/delete")
+async def remove_item(category: str, item_id: str) -> JSONResponse:
+    if category not in ITEM_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Unknown item category")
+    try:
+        item = delete_item(category, item_id)
+    except ItemNotFoundError:
+        raise HTTPException(status_code=404, detail="Item not found")
+    log_dashboard_action(
+        "Remove Item",
+        item.get("name", ""),
+        f"Removed {CATEGORY_LABELS[category].lower()}: {item.get('job') or item.get('name', '')}",
+    )
+    return JSONResponse({"status": "ok", "item": item})
+
+
 @app.post("/api/items/payments/{item_id}/deposit-paid")
 async def item_deposit_paid(item_id: str) -> JSONResponse:
     try:
@@ -289,6 +353,7 @@ async def command_center(request: Request) -> HTMLResponse:
     project_status = get_project_status()
     change_log = get_change_log()
     approvals = get_approvals()
+    item_options = load_items()
     pending_q_count = sum(1 for q in questions if q["status"] == "pending")
     pending_ap_count = sum(1 for a in approvals if a["status"] == "pending")
     return templates.TemplateResponse(
@@ -300,6 +365,7 @@ async def command_center(request: Request) -> HTMLResponse:
             "project_status": project_status,
             "change_log": change_log,
             "approvals": approvals,
+            "item_options": item_options,
             "task_statuses": TASK_STATUSES,
             "task_priorities": TASK_PRIORITIES,
             "pending_q_count": pending_q_count,
@@ -466,8 +532,15 @@ async def ai_operations(request: Request) -> HTMLResponse:
     inbox = get_inbox()
     questions = get_questions()
     activity = get_activity(limit=50)
+    automation = build_automation_snapshot()
     unread_count = sum(1 for i in inbox if i["status"] == "unread")
     pending_q_count = sum(1 for q in questions if q["status"] == "pending")
+    # Count pending (action_required + not resolved) inbox items per agent_type
+    pending_per_agent: dict[str, int] = {}
+    for item in inbox:
+        if item.get("action_required") and item.get("status") not in ("actioned", "dismissed"):
+            key = item.get("agent_type", "")
+            pending_per_agent[key] = pending_per_agent.get(key, 0) + 1
     return templates.TemplateResponse(
         request,
         "ai_operations.html",
@@ -478,6 +551,8 @@ async def ai_operations(request: Request) -> HTMLResponse:
             "activity": activity,
             "unread_count": unread_count,
             "pending_q_count": pending_q_count,
+            "pending_per_agent": pending_per_agent,
+            "automation": automation,
         },
     )
 
@@ -563,6 +638,97 @@ async def aiops_add_activity(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "entry": entry})
 
 
+@app.post("/api/aiops/agents/{agent_id}/run")
+async def aiops_run_agent(agent_id: str) -> JSONResponse:
+    """Trigger an agent to run now via OpenJarvis. Updates status to 'running' immediately."""
+    agent = next((candidate for candidate in get_agents() if candidate.get("id") == agent_id), None)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent = update_agent_status(agent_id, {
+        "status": "running",
+        "last_run": _now_iso(),
+        "current_task": "Running on demand...",
+        "error_message": "",
+    })
+    asyncio.create_task(_dispatch_agent_to_openjarvis(agent, "Run your morning briefing for Michael now."))
+    return JSONResponse({"status": "running", "agent": agent})
+
+
+async def _dispatch_agent_to_openjarvis(agent: dict[str, Any], prompt: str) -> dict[str, Any]:
+    """Dispatch an agent to OpenJarvis and persist result state for UI + automation."""
+    openjarvis_url = os.environ.get("OPENJARVIS_URL", "http://localhost:8000").rstrip("/")
+    agent_type = agent.get("agent_type", "")
+    agent_id = agent.get("id", "")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{openjarvis_url}/v1/agents/{agent_type}/run",
+                json={"input": prompt},
+            )
+            if resp.status_code >= 400:
+                update_agent_status(agent_id, {
+                    "status": "error",
+                    "error_message": f"OpenJarvis returned {resp.status_code}",
+                    "current_task": "",
+                    "last_result": "",
+                })
+                return {"ok": False, "message": f"OpenJarvis returned {resp.status_code}"}
+            schedule_next_run_for_agent(agent_id)
+            update_agent_status(agent_id, {
+                "status": "idle",
+                "last_run": _now_iso(),
+                "current_task": "",
+                "last_result": "Run completed and next cycle scheduled.",
+                "error_message": "",
+            })
+            add_activity({
+                "agent_name": agent.get("name", agent_type),
+                "action": "Agent run completed",
+                "detail": prompt,
+                "type": "info",
+            })
+            return {"ok": True, "message": f"Dispatched {agent.get('name', agent_type)} successfully."}
+    except Exception as exc:
+        update_agent_status(agent_id, {
+            "status": "error",
+            "error_message": str(exc)[:200],
+            "current_task": "",
+            "last_result": "",
+        })
+        return {"ok": False, "message": str(exc)[:200]}
+
+
+async def _run_automation_cycle_locked() -> dict[str, Any]:
+    async with app.state.automation_lock:
+        return await run_automation_cycle(_dispatch_agent_to_openjarvis)
+
+
+async def _automation_loop() -> None:
+    while True:
+        try:
+            await _run_automation_cycle_locked()
+        except Exception:
+            pass
+        await asyncio.sleep(get_refresh_minutes() * 60)
+
+
+@app.get("/api/automation/status")
+async def automation_status() -> JSONResponse:
+    return JSONResponse({"status": "ok", "automation": build_automation_snapshot()})
+
+
+@app.post("/api/automation/run")
+async def automation_run_now() -> JSONResponse:
+    state = build_automation_snapshot()
+    if state.get("is_running"):
+        return JSONResponse(
+            {"status": "busy", "automation": state, "detail": "Automation cycle is already running."},
+            status_code=409,
+        )
+    await _run_automation_cycle_locked()
+    return JSONResponse({"status": "ok", "automation": build_automation_snapshot()})
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse({"status": "ok"})
@@ -591,6 +757,10 @@ async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse
         {"status_code": 500, "message": "Something went wrong loading the dashboard."},
         status_code=500,
     )
+
+
+def _now_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
 
 
 UPDATE_TYPES = UPDATE_TYPE_OPTIONS

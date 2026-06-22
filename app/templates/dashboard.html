@@ -10,6 +10,25 @@
     <strong>{{ briefing.one_next_action.deadline }}</strong>
   </section>
 
+  <section class="brand-strip">
+    <article class="brand-card brand-card-construction">
+      <img src="{{ url_for('static', path='/img/4my4-construction-logo.jpg') }}" alt="4 My4 Construction logo" class="brand-logo">
+      <div>
+        <p class="section-label">Primary Brand</p>
+        <h3>4 My4 Construction</h3>
+        <p>Field work, estimates, deposits, crews, and drywall or finish jobs.</p>
+      </div>
+    </article>
+    <article class="brand-card brand-card-printing">
+      <img src="{{ url_for('static', path='/img/pog-printing-logo.jpg') }}" alt="POG Printing logo" class="brand-logo">
+      <div>
+        <p class="section-label">Primary Brand</p>
+        <h3>POG Printing</h3>
+        <p>Print orders, proofs, production status, payments, and pickup deadlines.</p>
+      </div>
+    </article>
+  </section>
+
   {% if briefing_warning or updates_warning %}
     <section class="notice-card">
       <p class="section-label">Data Warning</p>
@@ -22,7 +41,11 @@
     </section>
   {% endif %}
 
-  <section class="grid">
+  <div class="filter-bar">
+    <button type="button" id="filter-toggle" class="ghost-button small-button">Hide done</button>
+  </div>
+
+  <section class="grid" id="dashboard-grid">
     <article class="card">
       <div class="card-head">
         <h3>Today's Schedule</h3>
@@ -32,7 +55,7 @@
         </div>
       </div>
       {% for item in briefing.schedule %}
-        <button type="button" class="item-row interactive-row clickable-item" data-category="schedule" data-id="{{ item.id }}">
+        <button type="button" class="item-row interactive-row clickable-item" data-category="schedule" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <strong>{{ item.due }}</strong>
           <div>
             <p>{{ item.name }}</p>
@@ -43,7 +66,13 @@
     </article>
 
     <article class="card accent construction">
-      <h3>4 My4 Construction Revenue</h3>
+      <div class="card-head card-head-brand">
+        <div>
+          <h3>4 My4 Construction Revenue</h3>
+          <p class="section-label">Construction operations</p>
+        </div>
+        <img src="{{ url_for('static', path='/img/4my4-construction-logo.jpg') }}" alt="4 My4 Construction logo" class="section-logo">
+      </div>
       <p class="metric">{{ briefing.construction_revenue.today_target }}</p>
       <p>Week booked: {{ briefing.construction_revenue.week_booked }}</p>
       <div class="card-head subhead-row">
@@ -51,7 +80,7 @@
         <button type="button" class="ghost-button small-button add-item-trigger" data-category="construction_jobs">+ Add job</button>
       </div>
       {% for item in briefing.construction_jobs %}
-        <button type="button" class="item-row compact interactive-row clickable-item" data-category="construction_jobs" data-id="{{ item.id }}">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="construction_jobs" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <div>
             <p>{{ item.name }}</p>
             <span>{{ item.job }}</span>
@@ -62,7 +91,13 @@
     </article>
 
     <article class="card accent printing">
-      <h3>POG Printing Revenue</h3>
+      <div class="card-head card-head-brand">
+        <div>
+          <h3>POG Printing Revenue</h3>
+          <p class="section-label">Printing operations</p>
+        </div>
+        <img src="{{ url_for('static', path='/img/pog-printing-logo.jpg') }}" alt="POG Printing logo" class="section-logo">
+      </div>
       <p class="metric">{{ briefing.printing_revenue.today_target }}</p>
       <p>Open orders: {{ briefing.printing_revenue.open_orders }}</p>
       <div class="card-head subhead-row">
@@ -70,7 +105,7 @@
         <button type="button" class="ghost-button small-button add-item-trigger" data-category="printing_jobs">+ Add job</button>
       </div>
       {% for item in briefing.printing_jobs %}
-        <button type="button" class="item-row compact interactive-row clickable-item" data-category="printing_jobs" data-id="{{ item.id }}">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="printing_jobs" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <div>
             <p>{{ item.name }}</p>
             <span>{{ item.job }}</span>
@@ -86,7 +121,7 @@
         <button type="button" id="add-follow-up-button" class="ghost-button small-button">+ Add follow-up</button>
       </div>
       {% for item in briefing.follow_ups %}
-        <button type="button" class="item-row compact interactive-row clickable-item" data-category="follow_ups" data-id="{{ item.id }}">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="follow_ups" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <div>
             <p>{{ item.name }}</p>
             <span>{{ item.job }}</span>
@@ -102,7 +137,7 @@
         <button type="button" class="ghost-button small-button add-item-trigger" data-category="payments">+ Add</button>
       </div>
       {% for item in briefing.payments %}
-        <button type="button" class="item-row compact interactive-row clickable-item" data-category="payments" data-id="{{ item.id }}">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="payments" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <div>
             <p>{{ item.name }}</p>
             <span>{{ item.job }}</span>
@@ -118,7 +153,7 @@
         <button type="button" class="ghost-button small-button add-item-trigger" data-category="bills">+ Add</button>
       </div>
       {% for item in briefing.bills_money %}
-        <button type="button" class="item-row compact interactive-row clickable-item" data-category="bills" data-id="{{ item.id }}">
+        <button type="button" class="item-row compact interactive-row clickable-item" data-category="bills" data-id="{{ item.id }}" data-status="{{ item.status }}">
           <div>
             <p>{{ item.name }}</p>
             <span>Due {{ item.due }}</span>
